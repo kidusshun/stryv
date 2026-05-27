@@ -1,0 +1,45 @@
+{
+  "name": "stryv",
+  "version": "0.1.0",
+  "description": "Private Windows desktop app for personal time tracking.",
+  "main": "dist-electron/main.js",
+  "author": "",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "commonjs",
+  "packageManager": "pnpm@10.23.0",
+  "scripts": {
+    "dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
+    "build": "tsc -p tsconfig.electron.json && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
+    "rebuild:native": "electron-rebuild -f -w better-sqlite3"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.1.1",
+    "better-sqlite3": "^12.4.6",
+    "electron": "^39.2.6",
+    "lucide-react": "^0.561.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.4",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^24.10.2",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.4",
+    "wait-on": "^9.0.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "electron",
+      "esbuild"
+    ]
+  }
+}
