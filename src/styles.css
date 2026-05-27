@@ -185,6 +185,10 @@ a {
   padding: 22px;
 }
 
+.panel + .panel {
+  margin-top: 18px;
+}
+
 .panel h3 {
   font-size: 20px;
 }

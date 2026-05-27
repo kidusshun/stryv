@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { BrowserWindow, Menu, Tray, app, ipcMain, nativeImage } from 'electron';
 import { closeDatabase, getDatabaseStatus, initializeDatabase } from './database';
+import { getTrackerStatus, startTracker, stopTracker } from './tracker';
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -80,16 +81,19 @@ function restoreMainWindow(): void {
 
 app.whenReady().then(() => {
   initializeDatabase();
+  startTracker();
   createMainWindow();
   createTray();
 
   ipcMain.handle('app:getDatabaseStatus', () => getDatabaseStatus());
+  ipcMain.handle('tracking:getStatus', () => getTrackerStatus());
 
   app.on('activate', restoreMainWindow);
 });
 
 app.on('before-quit', () => {
   isQuitting = true;
+  stopTracker();
   closeDatabase();
 });
 

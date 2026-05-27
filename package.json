@@ -19,6 +19,7 @@
     "@vitejs/plugin-react": "^5.1.1",
     "better-sqlite3": "^12.4.6",
     "electron": "^39.2.6",
+    "get-windows": "^9.3.0",
     "lucide-react": "^0.561.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3"
@@ -39,7 +40,8 @@
     "onlyBuiltDependencies": [
       "better-sqlite3",
       "electron",
-      "esbuild"
+      "esbuild",
+      "get-windows"
     ]
   }
 }

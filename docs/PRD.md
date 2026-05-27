@@ -78,7 +78,7 @@ Acceptance Criteria:
 - Activity data persists across restarts.
 - Database migrations can be applied safely as schema changes.
 
-### Phase 2: Automatic Activity Tracking
+### Phase 2: Automatic Activity Tracking ✅
 
 #### P0. Active App and Window Tracking
 
