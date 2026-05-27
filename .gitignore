@@ -6,4 +6,5 @@ release/
 *.sqlite-shm
 *.sqlite-wal
 *.log
+phase*-dashboard-*.png
 .DS_Store

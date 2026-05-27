@@ -117,7 +117,7 @@ Acceptance Criteria:
 - Leaving the computer does not inflate app usage totals.
 - Idle blocks are visible in the daily timeline.
 
-### Phase 3: Daily Dashboard
+### Phase 3: Daily Dashboard ✅
 
 #### P0. Today View
 
