@@ -252,7 +252,7 @@ function WindowControls() {
   };
 
   return (
-    <div className="group fixed inset-x-0 top-0 z-50 h-10 bg-gradient-to-b from-stryv-elevated/0 to-transparent transition-colors duration-150 hover:from-stryv-elevated/75 [-webkit-app-region:drag]">
+    <div className="group fixed inset-x-0 top-0 z-50 h-12 bg-gradient-to-b from-stryv-elevated/0 to-transparent transition-colors duration-150 hover:from-stryv-elevated/75 [-webkit-app-region:drag]">
       <div className="absolute right-3 top-2 flex translate-y-[-2px] gap-1 opacity-0 transition-all duration-150 group-hover:translate-y-0 group-hover:opacity-100 [-webkit-app-region:no-drag]">
         <button
           aria-label="Minimize"
