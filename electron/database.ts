@@ -46,6 +46,28 @@ export type CurrentActivity = {
   durationSeconds: number;
 };
 
+export type TodayDashboard = {
+  day: string;
+  totalTrackedSeconds: number;
+  activeSeconds: number;
+  idleSeconds: number;
+  breakSeconds: number;
+  topApps: Array<{
+    appName: string;
+    durationSeconds: number;
+  }>;
+  timeline: Array<{
+    id: number;
+    appName: string;
+    windowTitle: string | null;
+    startedAt: string;
+    endedAt: string | null;
+    durationSeconds: number;
+    isIdle: boolean;
+  }>;
+  current: CurrentActivity;
+};
+
 let db: Database.Database | null = null;
 
 export function initializeDatabase(): DatabaseStatus {
@@ -217,6 +239,72 @@ export function getCurrentActivity(): CurrentActivity {
     isIdle: Boolean(currentSession.is_idle),
     startedAt: currentSession.started_at,
     durationSeconds: currentSession.duration_seconds,
+  };
+}
+
+export function getTodayDashboard(now = new Date()): TodayDashboard {
+  const database = requireDatabase();
+  const dayStart = new Date(now);
+  dayStart.setHours(0, 0, 0, 0);
+
+  const dayEnd = new Date(dayStart);
+  dayEnd.setDate(dayEnd.getDate() + 1);
+
+  const rows = database
+    .prepare(
+      `
+        SELECT *
+        FROM activity_sessions
+        WHERE started_at < @dayEnd
+          AND COALESCE(ended_at, @now) >= @dayStart
+        ORDER BY started_at ASC, id ASC
+      `,
+    )
+    .all({
+      dayStart: dayStart.toISOString(),
+      dayEnd: dayEnd.toISOString(),
+      now: now.toISOString(),
+    }) as ActivitySession[];
+
+  let activeSeconds = 0;
+  let idleSeconds = 0;
+  const topAppDurations = new Map<string, number>();
+
+  const timeline = rows.map((session) => {
+    const durationSeconds = getSessionOverlapSeconds(session, dayStart, dayEnd, now);
+
+    if (session.is_idle) {
+      idleSeconds += durationSeconds;
+    } else {
+      activeSeconds += durationSeconds;
+      topAppDurations.set(session.app_name, (topAppDurations.get(session.app_name) ?? 0) + durationSeconds);
+    }
+
+    return {
+      id: session.id,
+      appName: session.app_name,
+      windowTitle: session.window_title,
+      startedAt: session.started_at,
+      endedAt: session.ended_at,
+      durationSeconds,
+      isIdle: Boolean(session.is_idle),
+    };
+  });
+
+  const topApps = [...topAppDurations.entries()]
+    .map(([appName, durationSeconds]) => ({ appName, durationSeconds }))
+    .sort((a, b) => b.durationSeconds - a.durationSeconds)
+    .slice(0, 5);
+
+  return {
+    day: formatLocalDay(dayStart),
+    totalTrackedSeconds: activeSeconds + idleSeconds,
+    activeSeconds,
+    idleSeconds,
+    breakSeconds: 0,
+    topApps,
+    timeline,
+    current: getCurrentActivity(),
   };
 }
 
@@ -468,6 +556,26 @@ function nullableString(value: string | null | undefined): string | null {
 
 function secondsBetween(startIso: string, endIso: string): number {
   return Math.max(0, Math.floor((Date.parse(endIso) - Date.parse(startIso)) / 1000));
+}
+
+function getSessionOverlapSeconds(
+  session: ActivitySession,
+  dayStart: Date,
+  dayEnd: Date,
+  now: Date,
+): number {
+  const startedAt = Math.max(Date.parse(session.started_at), dayStart.getTime());
+  const endedAt = Math.min(Date.parse(session.ended_at ?? now.toISOString()), dayEnd.getTime(), now.getTime());
+
+  return Math.max(0, Math.floor((endedAt - startedAt) / 1000));
+}
+
+function formatLocalDay(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
 }
 
 function readPositiveInteger(value: string | undefined, fallback: number): number {
