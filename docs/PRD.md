@@ -142,40 +142,79 @@ Requirements:
 Acceptance Criteria:
 - User can understand not only which app consumed time, but when and why.
 
-### Phase 4: Categories and Rules
+### Phase 4: Categories, Rules, and Intent Sessions
 
 #### P1. Activity Categories
 
 Requirements:
-- Support built-in categories:
-  - Deep Work
-  - Work
-  - Learning
+- Support built-in operational categories:
+  - Focus Work
+  - Shallow Work
   - Communication
+  - Meetings
   - Planning
   - Admin
+  - Learning
+  - Creative
+  - Break
+  - Idle
+  - Personal
   - Entertainment
   - Social
   - Distraction
-  - Neutral
-  - Idle
+  - Uncategorized
 - Allow category colors.
 - Allow custom categories.
+- Categories should include behavior flags:
+  - `is_focus`
+  - `is_work`
+  - `is_break`
+  - `is_idle`
+  - `is_distracting`
+  - `idle_detection_exempt`
+  - `distraction_blocker_enabled`
+- Category flags drive dashboard and report calculations, not only labels.
 
 Acceptance Criteria:
 - App totals can be grouped by category.
 - Categories can be changed without losing historical sessions.
+- Work time, focus time, break time, idle time, and distraction time can be calculated from category flags.
 
 #### P1. Automatic Classification Rules
 
 Requirements:
 - User can define rules based on app name, executable path, website text in title, or window title keywords.
 - Rules assign categories automatically.
-- Rules can optionally mark activity as focus-eligible or distracting.
+- Rules inherit behavior from the assigned category.
+- Rules can be enabled, disabled, edited, and deleted.
+- Rule matching should support priority order when multiple rules match.
 
 Acceptance Criteria:
 - Repeated apps/sites are categorized automatically after a rule is created.
 - Rule changes can be applied to future activity and optionally historical activity.
+
+#### P1. Intent Sessions
+
+Requirements:
+- User can start a temporary intent session for a specified duration.
+- Intent sessions assign a productive category to specific apps/sites that are normally distracting.
+- User can define intent session name, duration, category, and allowed app/site match rules.
+- Example: TikTok, Instagram, and YouTube are normally Social or Distraction, but can be treated as Creative or Learning during a 45-minute "Content Research" intent session.
+- Intent sessions end automatically when their duration expires.
+- User can manually stop an active intent session.
+- Intent session categorization should not permanently change default app/site rules.
+- Categorization priority should be:
+  1. Privacy exclusions or pause tracking
+  2. Active intent session match
+  3. User classification rules
+  4. Default app/site category
+  5. Uncategorized
+
+Acceptance Criteria:
+- User can temporarily use normally distracting apps/sites for intentional productive work.
+- Reports can distinguish intentional productive use from ordinary distracting use.
+- When the intent session ends, apps/sites return to their normal categorization.
+- Dashboard shows the active intent session and remaining time when one is running.
 
 ### Phase 5: Focus and Distraction Analysis
 
