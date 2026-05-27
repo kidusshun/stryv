@@ -11,12 +11,14 @@ module.exports = {
           line: '#2a2a2a',
           muted: '#9a9a9a',
           text: '#f4f4f4',
-          orange: '#ff6a00',
-          orangeSoft: '#ff8a2a',
+          orange: '#e8581a',
+          orangeSoft: '#ff9a4a',
+          ember: '#b93a12',
+          amber: '#ffb267',
         },
       },
       boxShadow: {
-        neon: '0 0 28px rgba(255, 106, 0, 0.22)',
+        neon: '0 0 24px rgba(232, 88, 26, 0.24), 0 0 48px rgba(255, 178, 103, 0.08)',
       },
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'sans-serif'],

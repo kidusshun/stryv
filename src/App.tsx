@@ -74,7 +74,7 @@ export function App() {
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[252px_minmax(0,1fr)]">
         <aside className="border-b border-stryv-line bg-black px-5 py-5 lg:border-b-0 lg:border-r">
           <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-lg border border-stryv-orange/60 bg-stryv-orange text-lg font-black text-black shadow-neon">
+            <div className="grid h-10 w-10 place-items-center rounded-lg border border-stryv-orange/50 bg-gradient-to-br from-stryv-amber via-stryv-orange to-stryv-ember text-lg font-black text-black shadow-neon">
               S
             </div>
             <div>
@@ -85,7 +85,7 @@ export function App() {
 
           <nav className="mt-8 grid gap-2" aria-label="Primary">
             <a
-              className="flex h-11 items-center gap-3 rounded-lg border border-stryv-orange/40 bg-stryv-orange/10 px-3 text-sm font-bold text-stryv-orange"
+              className="flex h-11 items-center gap-3 rounded-lg border border-stryv-orange/35 bg-gradient-to-r from-stryv-ember/20 via-stryv-orange/10 to-transparent px-3 text-sm font-bold text-stryv-orange"
               href="#today"
             >
               <Activity size={18} />
@@ -111,7 +111,9 @@ export function App() {
         <section className="min-w-0 px-5 py-6 sm:px-7 lg:px-9" id="today">
           <header className="flex flex-col gap-4 border-b border-stryv-line pb-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase text-stryv-orange">Phase 3 dashboard</p>
+              <p className="bg-gradient-to-r from-stryv-amber via-stryv-orange to-stryv-ember bg-clip-text text-xs font-bold uppercase text-transparent">
+                Phase 3 dashboard
+              </p>
               <h2 className="mt-1 text-3xl font-bold tracking-normal text-white">Today</h2>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -140,7 +142,7 @@ export function App() {
                     {today.current.windowTitle ?? 'Waiting for the next active window sample.'}
                   </p>
                 </div>
-                <div className="shrink-0 rounded-lg border border-stryv-orange/40 bg-stryv-orange/10 px-3 py-2 text-left sm:text-right">
+                <div className="shrink-0 rounded-lg border border-stryv-orange/35 bg-gradient-to-br from-stryv-orange/15 to-stryv-ember/10 px-3 py-2 text-left sm:text-right">
                   <p className="text-[11px] font-bold uppercase text-stryv-orange">Duration</p>
                   <p className="mt-1 whitespace-nowrap text-sm font-bold text-white">
                     {formatDuration(today.current.durationSeconds)}
@@ -165,7 +167,7 @@ export function App() {
                       </div>
                       <div className="h-2 overflow-hidden rounded-full bg-stryv-elevated">
                         <div
-                          className="h-full rounded-full bg-stryv-orange shadow-neon"
+                          className="h-full rounded-full bg-gradient-to-r from-stryv-ember via-stryv-orange to-stryv-amber shadow-neon"
                           style={{ width: `${Math.max(6, (app.durationSeconds / topDuration) * 100)}%` }}
                         />
                       </div>
@@ -193,7 +195,9 @@ export function App() {
                       <div className="flex min-w-0 items-center gap-2">
                         <span
                           className={`h-2 w-2 shrink-0 rounded-full ${
-                            session.isIdle ? 'bg-stryv-muted' : 'bg-stryv-orange shadow-neon'
+                            session.isIdle
+                              ? 'bg-stryv-muted'
+                              : 'bg-gradient-to-br from-stryv-amber to-stryv-ember shadow-neon'
                           }`}
                         />
                         <h3 className="truncate text-sm font-bold text-white">{session.appName}</h3>
@@ -232,7 +236,7 @@ function MetricCard({ icon, label, value }: { icon: React.ReactNode; label: stri
     <article className="rounded-lg border border-stryv-line bg-stryv-panel p-5 shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
       <div className="flex items-center justify-between gap-3 text-stryv-orange">
         {icon}
-        <span className="h-2 w-2 rounded-full bg-stryv-orange shadow-neon" />
+        <span className="h-2 w-2 rounded-full bg-gradient-to-br from-stryv-amber to-stryv-ember shadow-neon" />
       </div>
       <p className="mt-5 text-xs font-bold uppercase text-stryv-muted">{label}</p>
       <strong className="mt-2 block text-2xl font-bold tracking-normal text-white">{value}</strong>
