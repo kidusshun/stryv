@@ -21,8 +21,10 @@ function createMainWindow(): void {
     height: 760,
     minWidth: 900,
     minHeight: 620,
+    frame: false,
+    autoHideMenuBar: true,
     show: false,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#070707',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -90,11 +92,27 @@ app.whenReady().then(() => {
   }
 
   initializeDatabase();
+  Menu.setApplicationMenu(null);
   startTracker();
   createMainWindow();
   createTray();
 
   ipcMain.handle('app:getDatabaseStatus', () => getDatabaseStatus());
+  ipcMain.handle('window:minimize', () => mainWindow?.minimize());
+  ipcMain.handle('window:toggleMaximize', () => {
+    if (!mainWindow) {
+      return false;
+    }
+
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+      return false;
+    }
+
+    mainWindow.maximize();
+    return true;
+  });
+  ipcMain.handle('window:closeToTray', () => mainWindow?.hide());
   ipcMain.handle('tracking:getStatus', () => getTrackerStatus());
   ipcMain.handle('dashboard:getToday', () => getTodayDashboard());
 

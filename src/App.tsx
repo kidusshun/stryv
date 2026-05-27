@@ -5,8 +5,11 @@ import {
   Database,
   Flame,
   ListTree,
+  Maximize2,
+  Minus,
   Monitor,
   Moon,
+  X,
   ShieldCheck,
   Timer,
 } from 'lucide-react';
@@ -71,19 +74,10 @@ export function App() {
 
   return (
     <main className="min-h-screen bg-stryv-bg text-stryv-text">
+      <WindowControls />
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[252px_minmax(0,1fr)]">
-        <aside className="border-b border-stryv-line bg-black px-5 py-5 lg:border-b-0 lg:border-r">
-          <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-lg border border-stryv-orange/50 bg-gradient-to-br from-stryv-amber via-stryv-orange to-stryv-ember text-lg font-black text-black shadow-neon">
-              S
-            </div>
-            <div>
-              <h1 className="text-lg font-bold leading-none tracking-normal">Stryv</h1>
-              <p className="mt-1 text-xs font-medium text-stryv-muted">Personal time OS</p>
-            </div>
-          </div>
-
-          <nav className="mt-8 grid gap-2" aria-label="Primary">
+        <aside className="border-b border-stryv-line bg-black px-5 pb-5 pt-12 lg:border-b-0 lg:border-r">
+          <nav className="grid gap-2" aria-label="Primary">
             <a
               className="flex h-11 items-center gap-3 rounded-lg border border-stryv-orange/35 bg-gradient-to-r from-stryv-ember/20 via-stryv-orange/10 to-transparent px-3 text-sm font-bold text-stryv-orange"
               href="#today"
@@ -108,7 +102,7 @@ export function App() {
           </nav>
         </aside>
 
-        <section className="min-w-0 px-5 py-6 sm:px-7 lg:px-9" id="today">
+        <section className="min-w-0 px-5 pb-6 pt-12 sm:px-7 lg:px-9" id="today">
           <header className="flex flex-col gap-4 border-b border-stryv-line pb-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="bg-gradient-to-r from-stryv-amber via-stryv-orange to-stryv-ember bg-clip-text text-xs font-bold uppercase text-transparent">
@@ -241,6 +235,51 @@ function MetricCard({ icon, label, value }: { icon: React.ReactNode; label: stri
       <p className="mt-5 text-xs font-bold uppercase text-stryv-muted">{label}</p>
       <strong className="mt-2 block text-2xl font-bold tracking-normal text-white">{value}</strong>
     </article>
+  );
+}
+
+function WindowControls() {
+  const minimize = () => {
+    void window.stryv?.minimizeWindow();
+  };
+
+  const toggleMaximize = () => {
+    void window.stryv?.toggleMaximizeWindow();
+  };
+
+  const closeToTray = () => {
+    void window.stryv?.closeWindowToTray();
+  };
+
+  return (
+    <div className="fixed inset-x-0 top-0 z-50 h-10 [-webkit-app-region:drag]">
+      <div className="absolute right-2 top-2 flex opacity-0 transition-opacity duration-150 hover:opacity-100 [-webkit-app-region:no-drag]">
+        <button
+          aria-label="Minimize"
+          className="grid h-7 w-9 place-items-center rounded-md text-stryv-muted hover:bg-stryv-elevated hover:text-white"
+          onClick={minimize}
+          type="button"
+        >
+          <Minus size={14} />
+        </button>
+        <button
+          aria-label="Maximize"
+          className="grid h-7 w-9 place-items-center rounded-md text-stryv-muted hover:bg-stryv-elevated hover:text-white"
+          onClick={toggleMaximize}
+          type="button"
+        >
+          <Maximize2 size={13} />
+        </button>
+        <button
+          aria-label="Close to tray"
+          className="grid h-7 w-9 place-items-center rounded-md text-stryv-muted hover:bg-stryv-ember/80 hover:text-white"
+          onClick={closeToTray}
+          type="button"
+        >
+          <X size={14} />
+        </button>
+      </div>
+    </div>
   );
 }
 
