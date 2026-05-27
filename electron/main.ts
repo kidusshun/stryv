@@ -1,6 +1,15 @@
 import path from 'node:path';
 import { BrowserWindow, Menu, Tray, app, ipcMain, nativeImage, screen } from 'electron';
-import { closeDatabase, getDatabaseStatus, getTodayDashboard, initializeDatabase } from './database';
+import {
+  closeDatabase,
+  getCategories,
+  getDatabaseStatus,
+  getTodayDashboard,
+  initializeDatabase,
+  startIntentSession,
+  stopActiveIntentSession,
+  type IntentSessionInput,
+} from './database';
 import { getTrackerStatus, startTracker, stopTracker } from './tracker';
 
 let mainWindow: BrowserWindow | null = null;
@@ -166,6 +175,9 @@ app.whenReady().then(() => {
   ipcMain.handle('window:closeToTray', () => mainWindow?.hide());
   ipcMain.handle('tracking:getStatus', () => getTrackerStatus());
   ipcMain.handle('dashboard:getToday', () => getTodayDashboard());
+  ipcMain.handle('categories:list', () => getCategories());
+  ipcMain.handle('intent:start', (_event, input: IntentSessionInput) => startIntentSession(input));
+  ipcMain.handle('intent:stopActive', () => stopActiveIntentSession());
 
   app.on('activate', restoreMainWindow);
 });

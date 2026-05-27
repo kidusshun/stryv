@@ -1,6 +1,7 @@
 import { BrowserWindow, powerMonitor } from 'electron';
 import {
   getCurrentActivity,
+  getActivityFingerprint,
   getTrackingSettings,
   recordActivityChange,
   stopCurrentSession,
@@ -69,7 +70,7 @@ async function pollActiveWindow(): Promise<void> {
 
   try {
     const sample = await getActivitySample();
-    const key = getActivityKey(sample);
+    const key = getActivityFingerprint(sample);
 
     if (key === lastActivityKey) {
       touchCurrentSession(sample.sampledAt);
@@ -118,15 +119,6 @@ async function getActiveWindow(): Promise<ActiveWindowResult | undefined> {
   };
 
   return getWindows.activeWindow();
-}
-
-function getActivityKey(sample: ActivitySampleInput): string {
-  return JSON.stringify({
-    appName: sample.appName,
-    executablePath: sample.executablePath,
-    windowTitle: sample.windowTitle,
-    isIdle: sample.isIdle,
-  });
 }
 
 function notifyTrackingStatus(): void {

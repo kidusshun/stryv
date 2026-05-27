@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { DatabaseStatus, TodayDashboard } from './database';
+import type { Category, DatabaseStatus, IntentSession, IntentSessionInput, TodayDashboard } from './database';
 import type { getTrackerStatus } from './tracker';
 
 type TrackerStatus = ReturnType<typeof getTrackerStatus>;
@@ -8,6 +8,9 @@ export type StryvApi = {
   getDatabaseStatus: () => Promise<DatabaseStatus>;
   getTodayDashboard: () => Promise<TodayDashboard>;
   getTrackerStatus: () => Promise<TrackerStatus>;
+  getCategories: () => Promise<Category[]>;
+  startIntentSession: (input: IntentSessionInput) => Promise<IntentSession>;
+  stopActiveIntentSession: () => Promise<void>;
   minimizeWindow: () => Promise<void>;
   toggleMaximizeWindow: () => Promise<boolean>;
   closeWindowToTray: () => Promise<void>;
@@ -19,6 +22,9 @@ const api: StryvApi = {
   getDatabaseStatus: () => ipcRenderer.invoke('app:getDatabaseStatus'),
   getTodayDashboard: () => ipcRenderer.invoke('dashboard:getToday'),
   getTrackerStatus: () => ipcRenderer.invoke('tracking:getStatus'),
+  getCategories: () => ipcRenderer.invoke('categories:list'),
+  startIntentSession: (input) => ipcRenderer.invoke('intent:start', input),
+  stopActiveIntentSession: () => ipcRenderer.invoke('intent:stopActive'),
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
   toggleMaximizeWindow: () => ipcRenderer.invoke('window:toggleMaximize'),
   closeWindowToTray: () => ipcRenderer.invoke('window:closeToTray'),

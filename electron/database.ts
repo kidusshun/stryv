@@ -2,7 +2,7 @@ import path from 'node:path';
 import Database from 'better-sqlite3';
 import { app } from 'electron';
 
-const CURRENT_SCHEMA_VERSION = 1;
+const CURRENT_SCHEMA_VERSION = 2;
 
 export type DatabaseStatus = {
   path: string;
@@ -30,6 +30,20 @@ export type ActivitySession = {
   is_idle: number;
 };
 
+export type Category = {
+  id: number;
+  name: string;
+  color: string;
+  is_builtin: number;
+  is_focus: number;
+  is_work: number;
+  is_break: number;
+  is_idle: number;
+  is_distracting: number;
+  idle_detection_exempt: number;
+  distraction_blocker_enabled: number;
+};
+
 export type TrackingSettings = {
   pollIntervalSeconds: number;
   idleThresholdSeconds: number;
@@ -44,6 +58,27 @@ export type CurrentActivity = {
   isIdle: boolean;
   startedAt: string | null;
   durationSeconds: number;
+  categoryName: string | null;
+};
+
+export type IntentSession = {
+  id: number;
+  name: string;
+  category_id: number;
+  category_name: string;
+  started_at: string;
+  ends_at: string;
+  status: 'active' | 'completed' | 'cancelled';
+};
+
+export type IntentSessionInput = {
+  name: string;
+  durationMinutes: number;
+  categoryId: number;
+  rules: Array<{
+    matchType: 'app_name' | 'executable_path' | 'window_title' | 'url';
+    pattern: string;
+  }>;
 };
 
 export type TodayDashboard = {
@@ -66,6 +101,7 @@ export type TodayDashboard = {
     isIdle: boolean;
   }>;
   current: CurrentActivity;
+  activeIntent: IntentSession | null;
 };
 
 let db: Database.Database | null = null;
@@ -116,10 +152,100 @@ export function getTrackingSettings(): TrackingSettings {
   };
 }
 
+export function getCategories(): Category[] {
+  return requireDatabase().prepare('SELECT * FROM categories ORDER BY is_builtin DESC, name ASC').all() as Category[];
+}
+
+export function getActiveIntentSession(now = new Date()): IntentSession | null {
+  completeExpiredIntentSessions(now);
+
+  return (
+    (requireDatabase()
+      .prepare(
+        `
+          SELECT intent_sessions.*, categories.name AS category_name
+          FROM intent_sessions
+          JOIN categories ON categories.id = intent_sessions.category_id
+          WHERE intent_sessions.status = 'active'
+          ORDER BY intent_sessions.started_at DESC
+          LIMIT 1
+        `,
+      )
+      .get() as IntentSession | undefined) ?? null
+  );
+}
+
+export function startIntentSession(input: IntentSessionInput, now = new Date()): IntentSession {
+  const database = requireDatabase();
+  const durationMinutes = Math.max(1, Math.floor(input.durationMinutes));
+  const startedAt = now.toISOString();
+  const endsAt = new Date(now.getTime() + durationMinutes * 60_000).toISOString();
+  const rules = input.rules
+    .map((rule) => ({ ...rule, pattern: rule.pattern.trim() }))
+    .filter((rule) => rule.pattern.length > 0);
+
+  if (rules.length === 0) {
+    throw new Error('Intent session requires at least one app or window rule.');
+  }
+
+  return database.transaction(() => {
+    database.prepare("UPDATE intent_sessions SET status = 'cancelled' WHERE status = 'active'").run();
+
+    const result = database
+      .prepare(
+        `
+          INSERT INTO intent_sessions (name, category_id, started_at, ends_at, status)
+          VALUES (@name, @categoryId, @startedAt, @endsAt, 'active')
+        `,
+      )
+      .run({
+        name: input.name.trim() || 'Intent Session',
+        categoryId: input.categoryId,
+        startedAt,
+        endsAt,
+      });
+
+    const intentSessionId = Number(result.lastInsertRowid);
+    const insertRule = database.prepare(`
+      INSERT INTO intent_session_rules (intent_session_id, match_type, pattern)
+      VALUES (@intentSessionId, @matchType, @pattern)
+    `);
+
+    for (const rule of rules) {
+      insertRule.run({
+        intentSessionId,
+        matchType: rule.matchType,
+        pattern: rule.pattern,
+      });
+    }
+
+    return getIntentSessionById(database, intentSessionId);
+  })();
+}
+
+export function stopActiveIntentSession(): void {
+  requireDatabase()
+    .prepare("UPDATE intent_sessions SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP WHERE status = 'active'")
+    .run();
+}
+
+export function getActivityFingerprint(sample: ActivitySampleInput): string {
+  const resolved = resolveCategoryForSample(requireDatabase(), sample, new Date(sample.sampledAt));
+
+  return JSON.stringify({
+    appName: sample.appName,
+    executablePath: sample.executablePath,
+    windowTitle: sample.windowTitle,
+    isIdle: sample.isIdle,
+    categoryId: resolved.categoryId,
+    intentSessionId: resolved.intentSessionId,
+  });
+}
+
 export function recordActivityChange(sample: ActivitySampleInput, forceNewSession = false): ActivitySession {
   const database = requireDatabase();
   const appId = sample.isIdle ? null : upsertApp(database, sample);
-  const categoryId = sample.isIdle ? getCategoryIdByName(database, 'Idle') : null;
+  const { categoryId } = resolveCategoryForSample(database, sample, new Date(sample.sampledAt));
 
   return database.transaction(() => {
     database
@@ -228,8 +354,15 @@ export function getCurrentActivity(): CurrentActivity {
       isIdle: false,
       startedAt: null,
       durationSeconds: 0,
+      categoryName: null,
     };
   }
+
+  const category = currentSession.category_id
+    ? (database.prepare('SELECT name FROM categories WHERE id = ?').get(currentSession.category_id) as
+        | { name: string }
+        | undefined)
+    : undefined;
 
   return {
     sessionId: currentSession.id,
@@ -239,6 +372,7 @@ export function getCurrentActivity(): CurrentActivity {
     isIdle: Boolean(currentSession.is_idle),
     startedAt: currentSession.started_at,
     durationSeconds: currentSession.duration_seconds,
+    categoryName: category?.name ?? null,
   };
 }
 
@@ -305,6 +439,7 @@ export function getTodayDashboard(now = new Date()): TodayDashboard {
     topApps,
     timeline,
     current: getCurrentActivity(),
+    activeIntent: getActiveIntentSession(now),
   };
 }
 
@@ -405,28 +540,106 @@ function migrate(database: Database.Database): void {
       database.pragma(`user_version = ${CURRENT_SCHEMA_VERSION}`);
     })();
   }
+
+  if (currentVersion < 2) {
+    database.transaction(() => {
+      addColumnIfMissing(database, 'categories', 'is_focus', 'INTEGER NOT NULL DEFAULT 0');
+      addColumnIfMissing(database, 'categories', 'is_work', 'INTEGER NOT NULL DEFAULT 0');
+      addColumnIfMissing(database, 'categories', 'is_break', 'INTEGER NOT NULL DEFAULT 0');
+      addColumnIfMissing(database, 'categories', 'is_idle', 'INTEGER NOT NULL DEFAULT 0');
+      addColumnIfMissing(database, 'categories', 'idle_detection_exempt', 'INTEGER NOT NULL DEFAULT 0');
+      addColumnIfMissing(database, 'categories', 'distraction_blocker_enabled', 'INTEGER NOT NULL DEFAULT 0');
+      addColumnIfMissing(database, 'rules', 'priority', 'INTEGER NOT NULL DEFAULT 100');
+
+      database.exec(`
+        CREATE TABLE IF NOT EXISTS intent_sessions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
+          started_at TEXT NOT NULL,
+          ends_at TEXT NOT NULL,
+          status TEXT NOT NULL CHECK (status IN ('active', 'completed', 'cancelled')),
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_intent_sessions_status_ends_at
+          ON intent_sessions(status, ends_at);
+
+        CREATE TABLE IF NOT EXISTS intent_session_rules (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          intent_session_id INTEGER NOT NULL REFERENCES intent_sessions(id) ON DELETE CASCADE,
+          match_type TEXT NOT NULL CHECK (match_type IN ('app_name', 'executable_path', 'window_title', 'url')),
+          pattern TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+
+      database.pragma(`user_version = ${CURRENT_SCHEMA_VERSION}`);
+    })();
+  }
 }
 
 function seedDefaults(database: Database.Database): void {
   const insertCategory = database.prepare(`
     INSERT OR IGNORE INTO categories
-      (name, color, is_builtin, is_focus_eligible, is_distracting)
+      (
+        name,
+        color,
+        is_builtin,
+        is_focus_eligible,
+        is_focus,
+        is_work,
+        is_break,
+        is_idle,
+        is_distracting,
+        idle_detection_exempt,
+        distraction_blocker_enabled
+      )
     VALUES
-      (@name, @color, 1, @isFocusEligible, @isDistracting)
+      (
+        @name,
+        @color,
+        1,
+        @isFocus,
+        @isFocus,
+        @isWork,
+        @isBreak,
+        @isIdle,
+        @isDistracting,
+        @idleDetectionExempt,
+        @distractionBlockerEnabled
+      )
+    ON CONFLICT(name) DO UPDATE SET
+      color = excluded.color,
+      is_builtin = 1,
+      is_focus_eligible = excluded.is_focus_eligible,
+      is_focus = excluded.is_focus,
+      is_work = excluded.is_work,
+      is_break = excluded.is_break,
+      is_idle = excluded.is_idle,
+      is_distracting = excluded.is_distracting,
+      idle_detection_exempt = excluded.idle_detection_exempt,
+      distraction_blocker_enabled = excluded.distraction_blocker_enabled,
+      updated_at = CURRENT_TIMESTAMP
   `);
 
   const categories = [
-    ['Deep Work', '#2563eb', 1, 0],
-    ['Work', '#0891b2', 1, 0],
-    ['Learning', '#16a34a', 1, 0],
-    ['Communication', '#7c3aed', 0, 0],
-    ['Planning', '#0f766e', 1, 0],
-    ['Admin', '#64748b', 0, 0],
-    ['Entertainment', '#f97316', 0, 1],
-    ['Social', '#db2777', 0, 1],
-    ['Distraction', '#dc2626', 0, 1],
-    ['Neutral', '#737373', 0, 0],
-    ['Idle', '#a3a3a3', 0, 0],
+    ['Focus Work', '#f97316', 1, 1, 0, 0, 0, 0],
+    ['Shallow Work', '#fb923c', 0, 1, 0, 0, 0, 0],
+    ['Communication', '#38bdf8', 0, 1, 0, 0, 0, 0],
+    ['Meetings', '#a78bfa', 0, 1, 0, 0, 1, 0],
+    ['Planning', '#2dd4bf', 1, 1, 0, 0, 0, 0],
+    ['Admin', '#94a3b8', 0, 1, 0, 0, 0, 0],
+    ['Learning', '#22c55e', 1, 1, 0, 0, 0, 0],
+    ['Creative', '#f59e0b', 1, 1, 0, 0, 0, 0],
+    ['Break', '#84cc16', 0, 0, 1, 0, 1, 0],
+    ['Idle', '#737373', 0, 0, 0, 1, 0, 0],
+    ['Personal', '#e879f9', 0, 0, 0, 0, 0, 0],
+    ['Entertainment', '#ef4444', 0, 0, 0, 0, 1, 1],
+    ['Social', '#ec4899', 0, 0, 0, 0, 1, 1],
+    ['Distraction', '#dc2626', 0, 0, 0, 0, 1, 1],
+    ['Uncategorized', '#a3a3a3', 0, 0, 0, 0, 0, 0],
   ];
 
   const insertSetting = database.prepare(`
@@ -435,8 +648,27 @@ function seedDefaults(database: Database.Database): void {
   `);
 
   database.transaction(() => {
-    for (const [name, color, isFocusEligible, isDistracting] of categories) {
-      insertCategory.run({ name, color, isFocusEligible, isDistracting });
+    for (const [
+      name,
+      color,
+      isFocus,
+      isWork,
+      isBreak,
+      isIdle,
+      isDistracting,
+      distractionBlockerEnabled,
+    ] of categories) {
+      insertCategory.run({
+        name,
+        color,
+        isFocus,
+        isWork,
+        isBreak,
+        isIdle,
+        isDistracting,
+        idleDetectionExempt: isBreak || isIdle,
+        distractionBlockerEnabled,
+      });
     }
 
     insertSetting.run({ key: 'tracking.pollIntervalSeconds', value: '5' });
@@ -456,6 +688,173 @@ function requireDatabase(): Database.Database {
   }
 
   return db;
+}
+
+function addColumnIfMissing(
+  database: Database.Database,
+  tableName: string,
+  columnName: string,
+  columnDefinition: string,
+): void {
+  const columns = database.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string }>;
+  if (columns.some((column) => column.name === columnName)) {
+    return;
+  }
+
+  database.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`);
+}
+
+function resolveCategoryForSample(
+  database: Database.Database,
+  sample: ActivitySampleInput,
+  now: Date,
+): { categoryId: number | null; intentSessionId: number | null } {
+  if (sample.isIdle) {
+    return { categoryId: getCategoryIdByName(database, 'Idle'), intentSessionId: null };
+  }
+
+  completeExpiredIntentSessions(now);
+
+  const intentMatch = getIntentCategoryMatch(database, sample);
+  if (intentMatch) {
+    return intentMatch;
+  }
+
+  const ruleMatch = getRuleCategoryMatch(database, sample);
+  if (ruleMatch) {
+    return { categoryId: ruleMatch.categoryId, intentSessionId: null };
+  }
+
+  const appCategory = getAppCategoryId(database, sample);
+  if (appCategory) {
+    return { categoryId: appCategory, intentSessionId: null };
+  }
+
+  return { categoryId: getCategoryIdByName(database, 'Uncategorized'), intentSessionId: null };
+}
+
+function completeExpiredIntentSessions(now: Date): void {
+  requireDatabase()
+    .prepare(
+      `
+        UPDATE intent_sessions
+        SET status = 'completed',
+            updated_at = CURRENT_TIMESTAMP
+        WHERE status = 'active'
+          AND ends_at <= @now
+      `,
+    )
+    .run({ now: now.toISOString() });
+}
+
+function getIntentCategoryMatch(
+  database: Database.Database,
+  sample: ActivitySampleInput,
+): { categoryId: number; intentSessionId: number } | null {
+  const rows = database
+    .prepare(
+      `
+        SELECT intent_sessions.id AS intent_session_id,
+               intent_sessions.category_id,
+               intent_session_rules.match_type,
+               intent_session_rules.pattern
+        FROM intent_sessions
+        JOIN intent_session_rules ON intent_session_rules.intent_session_id = intent_sessions.id
+        WHERE intent_sessions.status = 'active'
+        ORDER BY intent_sessions.started_at DESC, intent_session_rules.id ASC
+      `,
+    )
+    .all() as Array<{
+    intent_session_id: number;
+    category_id: number;
+    match_type: string;
+    pattern: string;
+  }>;
+
+  for (const row of rows) {
+    if (ruleMatchesSample(row.match_type, row.pattern, sample)) {
+      return { categoryId: row.category_id, intentSessionId: row.intent_session_id };
+    }
+  }
+
+  return null;
+}
+
+function getRuleCategoryMatch(
+  database: Database.Database,
+  sample: ActivitySampleInput,
+): { categoryId: number } | null {
+  const rows = database
+    .prepare(
+      `
+        SELECT category_id, match_type, pattern
+        FROM rules
+        WHERE is_enabled = 1
+        ORDER BY priority ASC, id ASC
+      `,
+    )
+    .all() as Array<{ category_id: number; match_type: string; pattern: string }>;
+
+  for (const row of rows) {
+    if (ruleMatchesSample(row.match_type, row.pattern, sample)) {
+      return { categoryId: row.category_id };
+    }
+  }
+
+  return null;
+}
+
+function getAppCategoryId(database: Database.Database, sample: ActivitySampleInput): number | null {
+  const row = database
+    .prepare('SELECT category_id FROM apps WHERE name = @appName AND executable_path IS @executablePath')
+    .get({ appName: sample.appName, executablePath: sample.executablePath }) as
+    | { category_id: number | null }
+    | undefined;
+
+  return row?.category_id ?? null;
+}
+
+function ruleMatchesSample(matchType: string, pattern: string, sample: ActivitySampleInput): boolean {
+  const normalizedPattern = pattern.trim().toLowerCase();
+  if (!normalizedPattern) {
+    return false;
+  }
+
+  const target = getRuleTarget(matchType, sample)?.toLowerCase();
+  return Boolean(target?.includes(normalizedPattern));
+}
+
+function getRuleTarget(matchType: string, sample: ActivitySampleInput): string | null {
+  switch (matchType) {
+    case 'app_name':
+      return sample.appName;
+    case 'executable_path':
+      return sample.executablePath;
+    case 'window_title':
+    case 'url':
+      return sample.windowTitle;
+    default:
+      return null;
+  }
+}
+
+function getIntentSessionById(database: Database.Database, id: number): IntentSession {
+  const row = database
+    .prepare(
+      `
+        SELECT intent_sessions.*, categories.name AS category_name
+        FROM intent_sessions
+        JOIN categories ON categories.id = intent_sessions.category_id
+        WHERE intent_sessions.id = ?
+      `,
+    )
+    .get(id) as IntentSession | undefined;
+
+  if (!row) {
+    throw new Error(`Intent session ${id} was not found.`);
+  }
+
+  return row;
 }
 
 function upsertApp(database: Database.Database, sample: ActivitySampleInput): number {

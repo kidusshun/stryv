@@ -31,6 +31,7 @@ const previewDashboard: TodayDashboard = {
   breakSeconds: 0,
   topApps: [],
   timeline: [],
+  activeIntent: null,
   current: {
     sessionId: null,
     appName: 'Electron preview unavailable',
@@ -39,6 +40,7 @@ const previewDashboard: TodayDashboard = {
     isIdle: false,
     startedAt: null,
     durationSeconds: 0,
+    categoryName: null,
   },
 };
 
