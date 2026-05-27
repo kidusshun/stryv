@@ -44,6 +44,37 @@ export type Category = {
   distraction_blocker_enabled: number;
 };
 
+export type CategoryInput = {
+  name: string;
+  color: string;
+  isFocus: boolean;
+  isWork: boolean;
+  isBreak: boolean;
+  isIdle: boolean;
+  isDistracting: boolean;
+  idleDetectionExempt: boolean;
+  distractionBlockerEnabled: boolean;
+};
+
+export type ClassificationRule = {
+  id: number;
+  name: string;
+  match_type: 'app_name' | 'executable_path' | 'window_title';
+  pattern: string;
+  category_id: number;
+  category_name: string;
+  is_enabled: number;
+  priority: number;
+};
+
+export type ClassificationRuleInput = {
+  name: string;
+  matchType: 'app_name' | 'executable_path' | 'window_title';
+  pattern: string;
+  categoryId: number;
+  priority: number;
+};
+
 export type TrackingSettings = {
   pollIntervalSeconds: number;
   idleThresholdSeconds: number;
@@ -154,6 +185,104 @@ export function getTrackingSettings(): TrackingSettings {
 
 export function getCategories(): Category[] {
   return requireDatabase().prepare('SELECT * FROM categories ORDER BY is_builtin DESC, name ASC').all() as Category[];
+}
+
+export function createCategory(input: CategoryInput): Category {
+  const database = requireDatabase();
+  const result = database
+    .prepare(
+      `
+        INSERT INTO categories (
+          name,
+          color,
+          is_builtin,
+          is_focus_eligible,
+          is_focus,
+          is_work,
+          is_break,
+          is_idle,
+          is_distracting,
+          idle_detection_exempt,
+          distraction_blocker_enabled
+        )
+        VALUES (
+          @name,
+          @color,
+          0,
+          @isFocus,
+          @isFocus,
+          @isWork,
+          @isBreak,
+          @isIdle,
+          @isDistracting,
+          @idleDetectionExempt,
+          @distractionBlockerEnabled
+        )
+      `,
+    )
+    .run({
+      name: input.name.trim(),
+      color: input.color,
+      isFocus: Number(input.isFocus),
+      isWork: Number(input.isWork),
+      isBreak: Number(input.isBreak),
+      isIdle: Number(input.isIdle),
+      isDistracting: Number(input.isDistracting),
+      idleDetectionExempt: Number(input.idleDetectionExempt),
+      distractionBlockerEnabled: Number(input.distractionBlockerEnabled),
+    });
+
+  return database.prepare('SELECT * FROM categories WHERE id = ?').get(Number(result.lastInsertRowid)) as Category;
+}
+
+export function getClassificationRules(): ClassificationRule[] {
+  return requireDatabase()
+    .prepare(
+      `
+        SELECT rules.*,
+               categories.name AS category_name
+        FROM rules
+        JOIN categories ON categories.id = rules.category_id
+        ORDER BY rules.priority ASC, rules.id ASC
+      `,
+    )
+    .all() as ClassificationRule[];
+}
+
+export function createClassificationRule(input: ClassificationRuleInput): ClassificationRule {
+  const database = requireDatabase();
+  const result = database
+    .prepare(
+      `
+        INSERT INTO rules (name, match_type, pattern, category_id, priority)
+        VALUES (@name, @matchType, @pattern, @categoryId, @priority)
+      `,
+    )
+    .run({
+      name: input.name.trim() || input.pattern.trim(),
+      matchType: input.matchType,
+      pattern: input.pattern.trim(),
+      categoryId: input.categoryId,
+      priority: Math.max(1, Math.floor(input.priority)),
+    });
+
+  return getClassificationRuleById(database, Number(result.lastInsertRowid));
+}
+
+export function setClassificationRuleEnabled(ruleId: number, isEnabled: boolean): ClassificationRule {
+  const database = requireDatabase();
+  database
+    .prepare(
+      `
+        UPDATE rules
+        SET is_enabled = @isEnabled,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = @ruleId
+      `,
+    )
+    .run({ ruleId, isEnabled: Number(isEnabled) });
+
+  return getClassificationRuleById(database, ruleId);
 }
 
 export function getActiveIntentSession(now = new Date()): IntentSession | null {
@@ -852,6 +981,26 @@ function getIntentSessionById(database: Database.Database, id: number): IntentSe
 
   if (!row) {
     throw new Error(`Intent session ${id} was not found.`);
+  }
+
+  return row;
+}
+
+function getClassificationRuleById(database: Database.Database, id: number): ClassificationRule {
+  const row = database
+    .prepare(
+      `
+        SELECT rules.*,
+               categories.name AS category_name
+        FROM rules
+        JOIN categories ON categories.id = rules.category_id
+        WHERE rules.id = ?
+      `,
+    )
+    .get(id) as ClassificationRule | undefined;
+
+  if (!row) {
+    throw new Error(`Classification rule ${id} was not found.`);
   }
 
   return row;

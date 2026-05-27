@@ -1,5 +1,14 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { Category, DatabaseStatus, IntentSession, IntentSessionInput, TodayDashboard } from './database';
+import type {
+  Category,
+  CategoryInput,
+  ClassificationRule,
+  ClassificationRuleInput,
+  DatabaseStatus,
+  IntentSession,
+  IntentSessionInput,
+  TodayDashboard,
+} from './database';
 import type { getTrackerStatus } from './tracker';
 
 type TrackerStatus = ReturnType<typeof getTrackerStatus>;
@@ -9,6 +18,10 @@ export type StryvApi = {
   getTodayDashboard: () => Promise<TodayDashboard>;
   getTrackerStatus: () => Promise<TrackerStatus>;
   getCategories: () => Promise<Category[]>;
+  createCategory: (input: CategoryInput) => Promise<Category>;
+  getClassificationRules: () => Promise<ClassificationRule[]>;
+  createClassificationRule: (input: ClassificationRuleInput) => Promise<ClassificationRule>;
+  setClassificationRuleEnabled: (ruleId: number, isEnabled: boolean) => Promise<ClassificationRule>;
   startIntentSession: (input: IntentSessionInput) => Promise<IntentSession>;
   stopActiveIntentSession: () => Promise<void>;
   minimizeWindow: () => Promise<void>;
@@ -23,6 +36,10 @@ const api: StryvApi = {
   getTodayDashboard: () => ipcRenderer.invoke('dashboard:getToday'),
   getTrackerStatus: () => ipcRenderer.invoke('tracking:getStatus'),
   getCategories: () => ipcRenderer.invoke('categories:list'),
+  createCategory: (input) => ipcRenderer.invoke('categories:create', input),
+  getClassificationRules: () => ipcRenderer.invoke('rules:list'),
+  createClassificationRule: (input) => ipcRenderer.invoke('rules:create', input),
+  setClassificationRuleEnabled: (ruleId, isEnabled) => ipcRenderer.invoke('rules:setEnabled', ruleId, isEnabled),
   startIntentSession: (input) => ipcRenderer.invoke('intent:start', input),
   stopActiveIntentSession: () => ipcRenderer.invoke('intent:stopActive'),
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),

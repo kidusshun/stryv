@@ -2,12 +2,18 @@ import path from 'node:path';
 import { BrowserWindow, Menu, Tray, app, ipcMain, nativeImage, screen } from 'electron';
 import {
   closeDatabase,
+  createCategory,
+  createClassificationRule,
   getCategories,
+  getClassificationRules,
   getDatabaseStatus,
   getTodayDashboard,
   initializeDatabase,
   startIntentSession,
   stopActiveIntentSession,
+  setClassificationRuleEnabled,
+  type CategoryInput,
+  type ClassificationRuleInput,
   type IntentSessionInput,
 } from './database';
 import { getTrackerStatus, startTracker, stopTracker } from './tracker';
@@ -176,6 +182,12 @@ app.whenReady().then(() => {
   ipcMain.handle('tracking:getStatus', () => getTrackerStatus());
   ipcMain.handle('dashboard:getToday', () => getTodayDashboard());
   ipcMain.handle('categories:list', () => getCategories());
+  ipcMain.handle('categories:create', (_event, input: CategoryInput) => createCategory(input));
+  ipcMain.handle('rules:list', () => getClassificationRules());
+  ipcMain.handle('rules:create', (_event, input: ClassificationRuleInput) => createClassificationRule(input));
+  ipcMain.handle('rules:setEnabled', (_event, ruleId: number, isEnabled: boolean) =>
+    setClassificationRuleEnabled(ruleId, isEnabled),
+  );
   ipcMain.handle('intent:start', (_event, input: IntentSessionInput) => startIntentSession(input));
   ipcMain.handle('intent:stopActive', () => stopActiveIntentSession());
 

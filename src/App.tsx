@@ -25,6 +25,7 @@ type DatabaseStatus = {
 type TrackerStatus = Awaited<ReturnType<NonNullable<Window['stryv']>['getTrackerStatus']>>;
 type TodayDashboard = Awaited<ReturnType<NonNullable<Window['stryv']>['getTodayDashboard']>>;
 type Category = Awaited<ReturnType<NonNullable<Window['stryv']>['getCategories']>>[number];
+type ClassificationRule = Awaited<ReturnType<NonNullable<Window['stryv']>['getClassificationRules']>>[number];
 
 const previewDashboard: TodayDashboard = {
   day: new Date().toISOString().slice(0, 10),
@@ -52,10 +53,25 @@ export function App() {
   const [trackerStatus, setTrackerStatus] = useState<TrackerStatus | null>(null);
   const [today, setToday] = useState<TodayDashboard>(previewDashboard);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [rules, setRules] = useState<ClassificationRule[]>([]);
   const [intentName, setIntentName] = useState('Content Research');
   const [intentDuration, setIntentDuration] = useState(45);
   const [intentCategoryId, setIntentCategoryId] = useState<number | null>(null);
   const [intentPatterns, setIntentPatterns] = useState('TikTok, Instagram, YouTube');
+  const [categoryName, setCategoryName] = useState('');
+  const [categoryColor, setCategoryColor] = useState('#e8581a');
+  const [categoryFlags, setCategoryFlags] = useState({
+    isFocus: false,
+    isWork: true,
+    isBreak: false,
+    isIdle: false,
+    isDistracting: false,
+    idleDetectionExempt: false,
+    distractionBlockerEnabled: false,
+  });
+  const [rulePattern, setRulePattern] = useState('');
+  const [ruleMatchType, setRuleMatchType] = useState<'app_name' | 'executable_path' | 'window_title'>('window_title');
+  const [ruleCategoryId, setRuleCategoryId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!window.stryv) {
@@ -73,7 +89,9 @@ export function App() {
       setCategories(nextCategories);
       const fallbackCategory = nextCategories.find((category) => category.name === 'Creative') ?? nextCategories[0];
       setIntentCategoryId((currentCategoryId) => currentCategoryId ?? fallbackCategory?.id ?? null);
+      setRuleCategoryId((currentCategoryId) => currentCategoryId ?? fallbackCategory?.id ?? null);
     });
+    void window.stryv.getClassificationRules().then(setRules);
     refreshDashboard();
 
     return window.stryv.onTrackerStatusChanged((status) => {
@@ -120,6 +138,50 @@ export function App() {
 
     await window.stryv.stopActiveIntentSession();
     setToday(await window.stryv.getTodayDashboard());
+  };
+
+  const createNewCategory = async () => {
+    if (!window.stryv || !categoryName.trim()) {
+      return;
+    }
+
+    const createdCategory = await window.stryv.createCategory({
+      name: categoryName,
+      color: categoryColor,
+      ...categoryFlags,
+    });
+
+    const nextCategories = await window.stryv.getCategories();
+    setCategories(nextCategories);
+    setCategoryName('');
+    setIntentCategoryId((currentCategoryId) => currentCategoryId ?? createdCategory.id);
+    setRuleCategoryId((currentCategoryId) => currentCategoryId ?? createdCategory.id);
+  };
+
+  const createNewRule = async () => {
+    if (!window.stryv || !rulePattern.trim() || !ruleCategoryId) {
+      return;
+    }
+
+    await window.stryv.createClassificationRule({
+      name: rulePattern,
+      matchType: ruleMatchType,
+      pattern: rulePattern,
+      categoryId: ruleCategoryId,
+      priority: 100,
+    });
+
+    setRules(await window.stryv.getClassificationRules());
+    setRulePattern('');
+  };
+
+  const toggleRule = async (rule: ClassificationRule) => {
+    if (!window.stryv) {
+      return;
+    }
+
+    await window.stryv.setClassificationRuleEnabled(rule.id, !rule.is_enabled);
+    setRules(await window.stryv.getClassificationRules());
   };
 
   return (
@@ -298,6 +360,132 @@ export function App() {
               </div>
             )}
           </Panel>
+
+          <section className="mt-5 grid gap-5 xl:grid-cols-2">
+            <Panel title="Categories" icon={<Database size={18} />}>
+              <div className="grid gap-3">
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_112px_auto]">
+                  <input
+                    className="h-10 rounded-lg border border-stryv-line bg-black/40 px-3 text-sm text-white outline-none focus:border-stryv-orange/60"
+                    onChange={(event) => setCategoryName(event.target.value)}
+                    placeholder="Custom category"
+                    value={categoryName}
+                  />
+                  <input
+                    className="h-10 rounded-lg border border-stryv-line bg-black/40 px-2"
+                    onChange={(event) => setCategoryColor(event.target.value)}
+                    type="color"
+                    value={categoryColor}
+                  />
+                  <button
+                    className="h-10 rounded-lg border border-stryv-orange/40 px-4 text-sm font-bold text-stryv-orange hover:border-stryv-orange/70"
+                    onClick={createNewCategory}
+                    type="button"
+                  >
+                    Add
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(['isFocus', 'isWork', 'isBreak', 'isDistracting'] as const).map((flag) => (
+                    <label
+                      className="inline-flex items-center gap-2 rounded-full border border-stryv-line px-3 py-2 text-xs font-bold text-stryv-muted"
+                      key={flag}
+                    >
+                      <input
+                        checked={categoryFlags[flag]}
+                        onChange={(event) =>
+                          setCategoryFlags((currentFlags) => ({ ...currentFlags, [flag]: event.target.checked }))
+                        }
+                        type="checkbox"
+                      />
+                      {flag.replace('is', '')}
+                    </label>
+                  ))}
+                </div>
+                <div className="grid max-h-64 gap-2 overflow-auto pr-1">
+                  {categories.map((category) => (
+                    <div
+                      className="flex items-center justify-between gap-3 rounded-lg border border-stryv-line bg-black/30 px-3 py-2 text-sm"
+                      key={category.id}
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: category.color }} />
+                        <span className="truncate font-semibold text-white">{category.name}</span>
+                      </div>
+                      <span className="text-xs font-bold uppercase text-stryv-muted">
+                        {category.is_work ? 'Work' : category.is_distracting ? 'Distract' : category.is_break ? 'Break' : 'Other'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Panel>
+
+            <Panel title="Rules" icon={<ListTree size={18} />}>
+              <div className="grid gap-3">
+                <div className="grid gap-3 sm:grid-cols-[140px_minmax(0,1fr)]">
+                  <select
+                    className="h-10 rounded-lg border border-stryv-line bg-black/40 px-3 text-sm text-white outline-none focus:border-stryv-orange/60"
+                    onChange={(event) =>
+                      setRuleMatchType(event.target.value as 'app_name' | 'executable_path' | 'window_title')
+                    }
+                    value={ruleMatchType}
+                  >
+                    <option value="window_title">Window title</option>
+                    <option value="app_name">App name</option>
+                    <option value="executable_path">Executable</option>
+                  </select>
+                  <input
+                    className="h-10 rounded-lg border border-stryv-line bg-black/40 px-3 text-sm text-white outline-none focus:border-stryv-orange/60"
+                    onChange={(event) => setRulePattern(event.target.value)}
+                    placeholder="youtube.com, TikTok, Slack"
+                    value={rulePattern}
+                  />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                  <select
+                    className="h-10 rounded-lg border border-stryv-line bg-black/40 px-3 text-sm text-white outline-none focus:border-stryv-orange/60"
+                    onChange={(event) => setRuleCategoryId(Number(event.target.value))}
+                    value={ruleCategoryId ?? ''}
+                  >
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className="h-10 rounded-lg border border-stryv-orange/40 px-4 text-sm font-bold text-stryv-orange hover:border-stryv-orange/70"
+                    onClick={createNewRule}
+                    type="button"
+                  >
+                    Add Rule
+                  </button>
+                </div>
+                <div className="grid max-h-64 gap-2 overflow-auto pr-1">
+                  {rules.length > 0 ? (
+                    rules.map((rule) => (
+                      <button
+                        className="grid rounded-lg border border-stryv-line bg-black/30 px-3 py-2 text-left text-sm hover:border-stryv-orange/40"
+                        key={rule.id}
+                        onClick={() => {
+                          void toggleRule(rule);
+                        }}
+                        type="button"
+                      >
+                        <span className="font-semibold text-white">{rule.pattern}</span>
+                        <span className="mt-1 text-xs text-stryv-muted">
+                          {rule.match_type} {'->'} {rule.category_name} · {rule.is_enabled ? 'enabled' : 'disabled'}
+                        </span>
+                      </button>
+                    ))
+                  ) : (
+                    <EmptyState text="No classification rules yet." />
+                  )}
+                </div>
+              </div>
+            </Panel>
+          </section>
 
           <Panel title="Timeline" icon={<ListTree size={18} />} className="mt-5" id="timeline">
             <div className="grid gap-2">
