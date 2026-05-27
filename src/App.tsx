@@ -131,16 +131,16 @@ export function App() {
             <MetricCard icon={<Clock size={20} />} label="Break Time" value={formatDuration(today.breakSeconds)} />
           </section>
 
-          <section className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <section className="mt-6 grid min-w-0 gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
             <Panel title="Current Session" icon={<Flame size={18} />}>
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex min-w-0 flex-col items-start justify-between gap-4 sm:flex-row">
                 <div className="min-w-0">
                   <p className="truncate text-2xl font-bold text-white">{today.current.appName}</p>
                   <p className="mt-2 line-clamp-2 text-sm leading-6 text-stryv-muted">
                     {today.current.windowTitle ?? 'Waiting for the next active window sample.'}
                   </p>
                 </div>
-                <div className="rounded-lg border border-stryv-orange/40 bg-stryv-orange/10 px-3 py-2 text-right">
+                <div className="shrink-0 rounded-lg border border-stryv-orange/40 bg-stryv-orange/10 px-3 py-2 text-left sm:text-right">
                   <p className="text-[11px] font-bold uppercase text-stryv-orange">Duration</p>
                   <p className="mt-1 whitespace-nowrap text-sm font-bold text-white">
                     {formatDuration(today.current.durationSeconds)}
@@ -254,7 +254,7 @@ function Panel({
   title: string;
 }) {
   return (
-    <section className={`rounded-lg border border-stryv-line bg-stryv-panel p-5 ${className}`} id={id}>
+    <section className={`min-w-0 rounded-lg border border-stryv-line bg-stryv-panel p-5 ${className}`} id={id}>
       <div className="mb-5 flex items-center gap-2 text-white">
         <span className="text-stryv-orange">{icon}</span>
         <h3 className="text-base font-bold">{title}</h3>
