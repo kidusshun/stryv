@@ -239,6 +239,43 @@ function MetricCard({ icon, label, value }: { icon: React.ReactNode; label: stri
 }
 
 function WindowControls() {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const updateVisibility = (clientY: number) => {
+      if (clientY <= 52) {
+        setIsVisible(true);
+        return;
+      }
+
+      if (clientY > 84) {
+        setIsVisible(false);
+      }
+    };
+
+    const onMouseMove = (event: MouseEvent) => {
+      updateVisibility(event.clientY);
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      updateVisibility(event.clientY);
+    };
+
+    const onMouseLeave = () => {
+      setIsVisible(false);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('mouseleave', onMouseLeave);
+
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('mouseleave', onMouseLeave);
+    };
+  }, []);
+
   const minimize = () => {
     void window.stryv?.minimizeWindow();
   };
@@ -252,8 +289,16 @@ function WindowControls() {
   };
 
   return (
-    <div className="group fixed inset-x-0 top-0 z-50 h-12 bg-gradient-to-b from-stryv-elevated/0 to-transparent transition-colors duration-150 hover:from-stryv-elevated/75 [-webkit-app-region:drag]">
-      <div className="absolute right-3 top-2 flex translate-y-[-2px] gap-1 opacity-0 transition-all duration-150 group-hover:translate-y-0 group-hover:opacity-100 [-webkit-app-region:no-drag]">
+    <div
+      className={`fixed inset-x-0 top-0 z-50 h-12 bg-gradient-to-b to-transparent transition-colors duration-150 [-webkit-app-region:drag] ${
+        isVisible ? 'from-stryv-elevated/75' : 'from-stryv-elevated/0'
+      }`}
+    >
+      <div
+        className={`absolute right-3 top-2 flex gap-1 transition-all duration-150 [-webkit-app-region:no-drag] ${
+          isVisible ? 'translate-y-0 opacity-100' : 'translate-y-[-2px] opacity-0'
+        }`}
+      >
         <button
           aria-label="Minimize"
           className="grid h-7 w-9 place-items-center rounded-md text-stryv-muted/80 hover:bg-white/10 hover:text-white"
