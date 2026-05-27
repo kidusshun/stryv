@@ -8,6 +8,11 @@ let tray: Tray | null = null;
 let isQuitting = false;
 
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!hasSingleInstanceLock) {
+  app.quit();
+}
 
 function createMainWindow(): void {
   mainWindow = new BrowserWindow({
@@ -80,6 +85,10 @@ function restoreMainWindow(): void {
 }
 
 app.whenReady().then(() => {
+  if (!hasSingleInstanceLock) {
+    return;
+  }
+
   initializeDatabase();
   startTracker();
   createMainWindow();
@@ -91,6 +100,8 @@ app.whenReady().then(() => {
 
   app.on('activate', restoreMainWindow);
 });
+
+app.on('second-instance', restoreMainWindow);
 
 app.on('before-quit', () => {
   isQuitting = true;
