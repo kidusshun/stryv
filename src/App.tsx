@@ -73,7 +73,7 @@ export function App() {
   );
 
   return (
-    <main className="min-h-screen bg-stryv-bg text-stryv-text">
+    <main className="min-h-screen overflow-x-hidden bg-stryv-bg text-stryv-text">
       <WindowControls />
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[252px_minmax(0,1fr)]">
         <aside className="border-b border-stryv-line bg-black px-5 pb-5 pt-12 lg:border-b-0 lg:border-r">
@@ -252,11 +252,11 @@ function WindowControls() {
   };
 
   return (
-    <div className="fixed inset-x-0 top-0 z-50 h-10 [-webkit-app-region:drag]">
-      <div className="absolute right-2 top-2 flex opacity-0 transition-opacity duration-150 hover:opacity-100 [-webkit-app-region:no-drag]">
+    <div className="group fixed inset-x-0 top-0 z-50 h-10 bg-gradient-to-b from-stryv-elevated/0 to-transparent transition-colors duration-150 hover:from-stryv-elevated/75 [-webkit-app-region:drag]">
+      <div className="absolute right-3 top-2 flex translate-y-[-2px] gap-1 opacity-0 transition-all duration-150 group-hover:translate-y-0 group-hover:opacity-100 [-webkit-app-region:no-drag]">
         <button
           aria-label="Minimize"
-          className="grid h-7 w-9 place-items-center rounded-md text-stryv-muted hover:bg-stryv-elevated hover:text-white"
+          className="grid h-7 w-9 place-items-center rounded-md text-stryv-muted/80 hover:bg-white/10 hover:text-white"
           onClick={minimize}
           type="button"
         >
@@ -264,7 +264,7 @@ function WindowControls() {
         </button>
         <button
           aria-label="Maximize"
-          className="grid h-7 w-9 place-items-center rounded-md text-stryv-muted hover:bg-stryv-elevated hover:text-white"
+          className="grid h-7 w-9 place-items-center rounded-md text-stryv-muted/80 hover:bg-white/10 hover:text-white"
           onClick={toggleMaximize}
           type="button"
         >
@@ -272,7 +272,7 @@ function WindowControls() {
         </button>
         <button
           aria-label="Close to tray"
-          className="grid h-7 w-9 place-items-center rounded-md text-stryv-muted hover:bg-stryv-ember/80 hover:text-white"
+          className="grid h-7 w-9 place-items-center rounded-md text-stryv-muted/80 hover:bg-stryv-ember/70 hover:text-white"
           onClick={closeToTray}
           type="button"
         >
