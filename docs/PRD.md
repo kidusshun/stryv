@@ -142,7 +142,7 @@ Requirements:
 Acceptance Criteria:
 - User can understand not only which app consumed time, but when and why.
 
-### Phase 4: Categories, Rules, and Intent Sessions
+### Phase 4: Categories, Rules, and Intent Sessions ✅
 
 #### P1. Activity Categories
 
