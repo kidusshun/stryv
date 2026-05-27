@@ -11,6 +11,7 @@ export type StryvApi = {
   minimizeWindow: () => Promise<void>;
   toggleMaximizeWindow: () => Promise<boolean>;
   closeWindowToTray: () => Promise<void>;
+  onWindowChromeHoverChanged: (callback: (isHovered: boolean) => void) => () => void;
   onTrackerStatusChanged: (callback: (status: TrackerStatus) => void) => () => void;
 };
 
@@ -21,6 +22,14 @@ const api: StryvApi = {
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
   toggleMaximizeWindow: () => ipcRenderer.invoke('window:toggleMaximize'),
   closeWindowToTray: () => ipcRenderer.invoke('window:closeToTray'),
+  onWindowChromeHoverChanged: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, isHovered: boolean) => callback(isHovered);
+    ipcRenderer.on('window:chromeHoverChanged', listener);
+
+    return () => {
+      ipcRenderer.removeListener('window:chromeHoverChanged', listener);
+    };
+  },
   onTrackerStatusChanged: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, status: TrackerStatus) => callback(status);
     ipcRenderer.on('tracking:statusChanged', listener);

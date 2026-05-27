@@ -242,38 +242,7 @@ function WindowControls() {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    const updateVisibility = (clientY: number) => {
-      if (clientY <= 52) {
-        setIsVisible(true);
-        return;
-      }
-
-      if (clientY > 84) {
-        setIsVisible(false);
-      }
-    };
-
-    const onMouseMove = (event: MouseEvent) => {
-      updateVisibility(event.clientY);
-    };
-
-    const onPointerMove = (event: PointerEvent) => {
-      updateVisibility(event.clientY);
-    };
-
-    const onMouseLeave = () => {
-      setIsVisible(false);
-    };
-
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('pointermove', onPointerMove);
-    document.addEventListener('mouseleave', onMouseLeave);
-
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('pointermove', onPointerMove);
-      document.removeEventListener('mouseleave', onMouseLeave);
-    };
+    return window.stryv?.onWindowChromeHoverChanged(setIsVisible);
   }, []);
 
   const minimize = () => {

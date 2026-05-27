@@ -1,11 +1,13 @@
 import path from 'node:path';
-import { BrowserWindow, Menu, Tray, app, ipcMain, nativeImage } from 'electron';
+import { BrowserWindow, Menu, Tray, app, ipcMain, nativeImage, screen } from 'electron';
 import { closeDatabase, getDatabaseStatus, getTodayDashboard, initializeDatabase } from './database';
 import { getTrackerStatus, startTracker, stopTracker } from './tracker';
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
+let chromeHoverInterval: NodeJS.Timeout | null = null;
+let isChromeHovered = false;
 
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -43,11 +45,59 @@ function createMainWindow(): void {
     }
   });
 
+  mainWindow.on('blur', () => {
+    setChromeHover(false);
+  });
+
   if (isDev) {
     void mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL as string);
   } else {
     void mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
   }
+}
+
+function startChromeHoverWatcher(): void {
+  if (chromeHoverInterval) {
+    return;
+  }
+
+  chromeHoverInterval = setInterval(() => {
+    if (!mainWindow || !mainWindow.isVisible() || mainWindow.isMinimized()) {
+      setChromeHover(false);
+      return;
+    }
+
+    const cursor = screen.getCursorScreenPoint();
+    const bounds = mainWindow.getBounds();
+    const isInsideWindow =
+      cursor.x >= bounds.x &&
+      cursor.x <= bounds.x + bounds.width &&
+      cursor.y >= bounds.y &&
+      cursor.y <= bounds.y + bounds.height;
+
+    if (!isInsideWindow) {
+      setChromeHover(false);
+      return;
+    }
+
+    setChromeHover(cursor.y - bounds.y <= 56);
+  }, 80);
+}
+
+function stopChromeHoverWatcher(): void {
+  if (chromeHoverInterval) {
+    clearInterval(chromeHoverInterval);
+    chromeHoverInterval = null;
+  }
+}
+
+function setChromeHover(nextValue: boolean): void {
+  if (isChromeHovered === nextValue) {
+    return;
+  }
+
+  isChromeHovered = nextValue;
+  mainWindow?.webContents.send('window:chromeHoverChanged', isChromeHovered);
 }
 
 function createTray(): void {
@@ -95,6 +145,7 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   startTracker();
   createMainWindow();
+  startChromeHoverWatcher();
   createTray();
 
   ipcMain.handle('app:getDatabaseStatus', () => getDatabaseStatus());
@@ -124,6 +175,7 @@ app.on('second-instance', restoreMainWindow);
 app.on('before-quit', () => {
   isQuitting = true;
   stopTracker();
+  stopChromeHoverWatcher();
   closeDatabase();
 });
 
