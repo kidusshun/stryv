@@ -9,6 +9,8 @@ import {
   Minus,
   Monitor,
   Moon,
+  Play,
+  Square,
   X,
   ShieldCheck,
   Timer,
@@ -22,6 +24,7 @@ type DatabaseStatus = {
 
 type TrackerStatus = Awaited<ReturnType<NonNullable<Window['stryv']>['getTrackerStatus']>>;
 type TodayDashboard = Awaited<ReturnType<NonNullable<Window['stryv']>['getTodayDashboard']>>;
+type Category = Awaited<ReturnType<NonNullable<Window['stryv']>['getCategories']>>[number];
 
 const previewDashboard: TodayDashboard = {
   day: new Date().toISOString().slice(0, 10),
@@ -48,6 +51,11 @@ export function App() {
   const [databaseStatus, setDatabaseStatus] = useState<DatabaseStatus | null>(null);
   const [trackerStatus, setTrackerStatus] = useState<TrackerStatus | null>(null);
   const [today, setToday] = useState<TodayDashboard>(previewDashboard);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [intentName, setIntentName] = useState('Content Research');
+  const [intentDuration, setIntentDuration] = useState(45);
+  const [intentCategoryId, setIntentCategoryId] = useState<number | null>(null);
+  const [intentPatterns, setIntentPatterns] = useState('TikTok, Instagram, YouTube');
 
   useEffect(() => {
     if (!window.stryv) {
@@ -61,6 +69,11 @@ export function App() {
 
     void window.stryv.getDatabaseStatus().then(setDatabaseStatus);
     void window.stryv.getTrackerStatus().then(setTrackerStatus);
+    void window.stryv.getCategories().then((nextCategories) => {
+      setCategories(nextCategories);
+      const fallbackCategory = nextCategories.find((category) => category.name === 'Creative') ?? nextCategories[0];
+      setIntentCategoryId((currentCategoryId) => currentCategoryId ?? fallbackCategory?.id ?? null);
+    });
     refreshDashboard();
 
     return window.stryv.onTrackerStatusChanged((status) => {
@@ -73,6 +86,41 @@ export function App() {
     () => Math.max(...today.topApps.map((app) => app.durationSeconds), 1),
     [today.topApps],
   );
+  const intentCategories = categories.filter(
+    (category) => Boolean(category.is_work) || Boolean(category.is_focus),
+  );
+
+  const startIntent = async () => {
+    if (!window.stryv || !intentCategoryId) {
+      return;
+    }
+
+    const patterns = intentPatterns
+      .split(',')
+      .map((pattern) => pattern.trim())
+      .filter(Boolean);
+
+    await window.stryv.startIntentSession({
+      name: intentName,
+      durationMinutes: intentDuration,
+      categoryId: intentCategoryId,
+      rules: patterns.flatMap((pattern) => [
+        { matchType: 'app_name', pattern } as const,
+        { matchType: 'window_title', pattern } as const,
+      ]),
+    });
+
+    setToday(await window.stryv.getTodayDashboard());
+  };
+
+  const stopIntent = async () => {
+    if (!window.stryv) {
+      return;
+    }
+
+    await window.stryv.stopActiveIntentSession();
+    setToday(await window.stryv.getTodayDashboard());
+  };
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-stryv-bg text-stryv-text">
@@ -147,6 +195,7 @@ export function App() {
               </div>
               <div className="mt-5 grid gap-3 text-sm">
                 <InfoRow label="State" value={today.current.isIdle ? 'Idle' : 'Active'} />
+                <InfoRow label="Category" value={today.current.categoryName ?? 'Uncategorized'} />
                 <InfoRow label="Executable" value={today.current.executablePath ?? 'Unavailable'} />
                 <InfoRow label="Database" value={databaseStatus ? `Schema v${databaseStatus.schemaVersion}` : 'Preparing'} />
               </div>
@@ -175,6 +224,80 @@ export function App() {
               </div>
             </Panel>
           </section>
+
+          <Panel title="Intent Session" icon={<Play size={18} />} className="mt-5">
+            {today.activeIntent ? (
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="truncate text-xl font-bold text-white">{today.activeIntent.name}</p>
+                  <p className="mt-1 text-sm text-stryv-muted">
+                    Treating matches as {today.activeIntent.category_name} until{' '}
+                    {formatTime(today.activeIntent.ends_at)}
+                  </p>
+                </div>
+                <button
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-stryv-line px-4 text-sm font-bold text-stryv-muted hover:border-stryv-orange/50 hover:text-white"
+                  onClick={stopIntent}
+                  type="button"
+                >
+                  <Square size={15} />
+                  Stop
+                </button>
+              </div>
+            ) : (
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_120px_180px_auto] xl:items-end">
+                <label className="grid gap-2">
+                  <span className="text-xs font-bold uppercase text-stryv-muted">Intent</span>
+                  <input
+                    className="h-10 rounded-lg border border-stryv-line bg-black/40 px-3 text-sm text-white outline-none focus:border-stryv-orange/60"
+                    onChange={(event) => setIntentName(event.target.value)}
+                    value={intentName}
+                  />
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-xs font-bold uppercase text-stryv-muted">Minutes</span>
+                  <input
+                    className="h-10 rounded-lg border border-stryv-line bg-black/40 px-3 text-sm text-white outline-none focus:border-stryv-orange/60"
+                    min={1}
+                    onChange={(event) => setIntentDuration(Number(event.target.value))}
+                    type="number"
+                    value={intentDuration}
+                  />
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-xs font-bold uppercase text-stryv-muted">Category</span>
+                  <select
+                    className="h-10 rounded-lg border border-stryv-line bg-black/40 px-3 text-sm text-white outline-none focus:border-stryv-orange/60"
+                    onChange={(event) => setIntentCategoryId(Number(event.target.value))}
+                    value={intentCategoryId ?? ''}
+                  >
+                    {intentCategories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-stryv-orange/40 bg-gradient-to-r from-stryv-ember/30 to-stryv-orange/20 px-4 text-sm font-bold text-stryv-orange hover:border-stryv-orange/70"
+                  onClick={startIntent}
+                  type="button"
+                >
+                  <Play size={15} />
+                  Start
+                </button>
+                <label className="grid gap-2 xl:col-span-4">
+                  <span className="text-xs font-bold uppercase text-stryv-muted">Allowed apps/sites</span>
+                  <input
+                    className="h-10 rounded-lg border border-stryv-line bg-black/40 px-3 text-sm text-white outline-none focus:border-stryv-orange/60"
+                    onChange={(event) => setIntentPatterns(event.target.value)}
+                    placeholder="TikTok, Instagram, YouTube"
+                    value={intentPatterns}
+                  />
+                </label>
+              </div>
+            )}
+          </Panel>
 
           <Panel title="Timeline" icon={<ListTree size={18} />} className="mt-5" id="timeline">
             <div className="grid gap-2">
