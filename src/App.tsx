@@ -8,10 +8,12 @@ import {
   Flame,
   ListTree,
   Maximize2,
+  Menu,
   Minus,
   Monitor,
   Moon,
   Play,
+  Settings,
   Square,
   X,
   ShieldCheck,
@@ -55,7 +57,23 @@ type SelectOption = {
   value: string;
 };
 
+type AppPage = 'home' | 'config';
+
+type CategorySummaryItem = {
+  name: string;
+  color: string;
+  durationSeconds: number;
+};
+
+type CalendarBlock = TodayDashboard['timeline'][number] & {
+  topPercent: number;
+  heightPercent: number;
+  color: string;
+};
+
 export function App() {
+  const [activePage, setActivePage] = useState<AppPage>('home');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
   const [databaseStatus, setDatabaseStatus] = useState<DatabaseStatus | null>(null);
   const [trackerStatus, setTrackerStatus] = useState<TrackerStatus | null>(null);
   const [today, setToday] = useState<TodayDashboard>(previewDashboard);
@@ -114,6 +132,8 @@ export function App() {
   const intentCategories = categories.filter(
     (category) => Boolean(category.is_work) || Boolean(category.is_focus),
   );
+  const categorySummary = useMemo(() => getCategorySummary(today), [today]);
+  const calendarBlocks = useMemo(() => getCalendarBlocks(today), [today]);
 
   const startIntent = async () => {
     if (!window.stryv || !intentCategoryId) {
@@ -192,42 +212,29 @@ export function App() {
   };
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-stryv-bg text-stryv-text">
+    <main className="min-h-screen overflow-hidden bg-stryv-bg text-stryv-text">
       <WindowControls />
-      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[252px_minmax(0,1fr)]">
-        <aside className="border-b border-stryv-line bg-black px-5 pb-5 pt-12 lg:border-b-0 lg:border-r">
-          <nav className="grid gap-2" aria-label="Primary">
-            <a
-              className="flex h-11 items-center gap-3 rounded-lg border border-stryv-orange/35 bg-gradient-to-r from-stryv-ember/20 via-stryv-orange/10 to-transparent px-3 text-sm font-bold text-stryv-orange"
-              href="#today"
-            >
-              <Activity size={18} />
-              Today
-            </a>
-            <a
-              className="flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold text-stryv-muted hover:bg-stryv-elevated hover:text-stryv-text"
-              href="#timeline"
-            >
-              <ListTree size={18} />
-              Timeline
-            </a>
-            <a
-              className="flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold text-stryv-muted hover:bg-stryv-elevated hover:text-stryv-text"
-              href="#data"
-            >
-              <Database size={18} />
-              Local Data
-            </a>
-          </nav>
-        </aside>
+      <div
+        className={`grid min-h-screen transition-[grid-template-columns] duration-200 ${
+          isSidebarCollapsed ? 'lg:grid-cols-[72px_minmax(0,1fr)]' : 'lg:grid-cols-[224px_minmax(0,1fr)]'
+        }`}
+      >
+        <AppSidebar
+          activePage={activePage}
+          isCollapsed={isSidebarCollapsed}
+          onNavigate={setActivePage}
+          onToggle={() => setIsSidebarCollapsed((current) => !current)}
+        />
 
-        <section className="min-w-0 px-5 pb-6 pt-12 sm:px-7 lg:px-9" id="today">
+        <section className="min-h-screen min-w-0 overflow-auto px-5 pb-6 pt-12 sm:px-7 lg:px-9">
           <header className="flex flex-col gap-4 border-b border-stryv-line pb-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="bg-gradient-to-r from-stryv-amber via-stryv-orange to-stryv-ember bg-clip-text text-xs font-bold uppercase text-transparent">
-                Phase 3 dashboard
+                {activePage === 'home' ? 'Daily activity' : 'Stryv settings'}
               </p>
-              <h2 className="mt-1 text-3xl font-bold tracking-normal text-white">Today</h2>
+              <h2 className="mt-1 text-3xl font-bold tracking-normal text-white">
+                {activePage === 'home' ? 'Today' : 'Configuration'}
+              </h2>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <StatusPill icon={<ShieldCheck size={16} />} label="Local-first" />
@@ -239,133 +246,87 @@ export function App() {
             </div>
           </header>
 
-          <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Daily metrics">
-            <MetricCard icon={<Timer size={20} />} label="Tracked Today" value={formatDuration(today.totalTrackedSeconds)} />
-            <MetricCard icon={<Activity size={20} />} label="Active Time" value={formatDuration(today.activeSeconds)} />
-            <MetricCard icon={<Moon size={20} />} label="Idle Time" value={formatDuration(today.idleSeconds)} />
-            <MetricCard icon={<Clock size={20} />} label="Break Time" value={formatDuration(today.breakSeconds)} />
-          </section>
-
-          <section className="mt-6 grid min-w-0 gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-            <Panel title="Current Session" icon={<Flame size={18} />}>
-              <div className="flex min-w-0 flex-col items-start justify-between gap-4 sm:flex-row">
-                <div className="min-w-0">
-                  <p className="truncate text-2xl font-bold text-white">{today.current.appName}</p>
-                  <p className="mt-2 line-clamp-2 text-sm leading-6 text-stryv-muted">
-                    {today.current.windowTitle ?? 'Waiting for the next active window sample.'}
-                  </p>
-                </div>
-                <div className="shrink-0 rounded-lg border border-stryv-orange/35 bg-gradient-to-br from-stryv-orange/15 to-stryv-ember/10 px-3 py-2 text-left sm:text-right">
-                  <p className="text-[11px] font-bold uppercase text-stryv-orange">Duration</p>
-                  <p className="mt-1 whitespace-nowrap text-sm font-bold text-white">
-                    {formatDuration(today.current.durationSeconds)}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-5 grid gap-3 text-sm">
-                <InfoRow label="State" value={today.current.isIdle ? 'Idle' : 'Active'} />
-                <InfoRow label="Category" value={today.current.categoryName ?? 'Uncategorized'} />
-                <InfoRow label="Executable" value={today.current.executablePath ?? 'Unavailable'} />
-                <InfoRow label="Database" value={databaseStatus ? `Schema v${databaseStatus.schemaVersion}` : 'Preparing'} />
-              </div>
-            </Panel>
-
-            <Panel title="Top Apps" icon={<BarChart3 size={18} />}>
-              <div className="grid gap-3">
-                {today.topApps.length > 0 ? (
-                  today.topApps.map((app) => (
-                    <div key={app.appName} className="grid gap-2">
-                      <div className="flex items-center justify-between gap-3 text-sm">
-                        <span className="min-w-0 truncate font-semibold text-white">{app.appName}</span>
-                        <span className="whitespace-nowrap text-stryv-muted">{formatDuration(app.durationSeconds)}</span>
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-stryv-elevated">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-stryv-ember via-stryv-orange to-stryv-amber shadow-neon"
-                          style={{ width: `${Math.max(6, (app.durationSeconds / topDuration) * 100)}%` }}
-                        />
-                      </div>
+          {activePage === 'home' ? (
+            <HomePage
+              calendarBlocks={calendarBlocks}
+              categorySummary={categorySummary}
+              databaseStatus={databaseStatus}
+              today={today}
+              topDuration={topDuration}
+            />
+          ) : (
+            <section className="mt-6 grid gap-5">
+              <Panel title="Intent Session" icon={<Play size={18} />}>
+                {today.activeIntent ? (
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="truncate text-xl font-bold text-white">{today.activeIntent.name}</p>
+                      <p className="mt-1 text-sm text-stryv-muted">
+                        Treating matches as {today.activeIntent.category_name} until{' '}
+                        {formatTime(today.activeIntent.ends_at)}
+                      </p>
                     </div>
-                  ))
+                    <button
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-stryv-line px-4 text-sm font-bold text-stryv-muted hover:border-stryv-orange/50 hover:text-white"
+                      onClick={stopIntent}
+                      type="button"
+                    >
+                      <Square size={15} />
+                      Stop
+                    </button>
+                  </div>
                 ) : (
-                  <EmptyState text="No app usage recorded today yet." />
+                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_120px_180px_auto] xl:items-end">
+                    <label className="grid gap-2">
+                      <span className="text-xs font-bold uppercase text-stryv-muted">Intent</span>
+                      <input
+                        className="h-10 rounded-lg border border-stryv-line bg-black/40 px-3 text-sm text-white outline-none focus:border-stryv-orange/60"
+                        onChange={(event) => setIntentName(event.target.value)}
+                        value={intentName}
+                      />
+                    </label>
+                    <label className="grid gap-2">
+                      <span className="text-xs font-bold uppercase text-stryv-muted">Minutes</span>
+                      <input
+                        className="h-10 rounded-lg border border-stryv-line bg-black/40 px-3 text-sm text-white outline-none focus:border-stryv-orange/60"
+                        min={1}
+                        onChange={(event) => setIntentDuration(Number(event.target.value))}
+                        type="number"
+                        value={intentDuration}
+                      />
+                    </label>
+                    <label className="grid gap-2">
+                      <span className="text-xs font-bold uppercase text-stryv-muted">Category</span>
+                      <ThemeSelect
+                        onChange={(value) => setIntentCategoryId(Number(value))}
+                        options={intentCategories.map((category) => ({
+                          label: category.name,
+                          value: String(category.id),
+                        }))}
+                        value={intentCategoryId ? String(intentCategoryId) : ''}
+                      />
+                    </label>
+                    <button
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-stryv-orange/40 bg-gradient-to-r from-stryv-ember/30 to-stryv-orange/20 px-4 text-sm font-bold text-stryv-orange hover:border-stryv-orange/70"
+                      onClick={startIntent}
+                      type="button"
+                    >
+                      <Play size={15} />
+                      Start
+                    </button>
+                    <label className="grid gap-2 xl:col-span-4">
+                      <span className="text-xs font-bold uppercase text-stryv-muted">Allowed apps/sites</span>
+                      <input
+                        className="h-10 rounded-lg border border-stryv-line bg-black/40 px-3 text-sm text-white outline-none focus:border-stryv-orange/60"
+                        onChange={(event) => setIntentPatterns(event.target.value)}
+                        placeholder="TikTok, Instagram, YouTube"
+                        value={intentPatterns}
+                      />
+                    </label>
+                  </div>
                 )}
-              </div>
-            </Panel>
-          </section>
-
-          <Panel title="Intent Session" icon={<Play size={18} />} className="mt-5">
-            {today.activeIntent ? (
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="truncate text-xl font-bold text-white">{today.activeIntent.name}</p>
-                  <p className="mt-1 text-sm text-stryv-muted">
-                    Treating matches as {today.activeIntent.category_name} until{' '}
-                    {formatTime(today.activeIntent.ends_at)}
-                  </p>
-                </div>
-                <button
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-stryv-line px-4 text-sm font-bold text-stryv-muted hover:border-stryv-orange/50 hover:text-white"
-                  onClick={stopIntent}
-                  type="button"
-                >
-                  <Square size={15} />
-                  Stop
-                </button>
-              </div>
-            ) : (
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_120px_180px_auto] xl:items-end">
-                <label className="grid gap-2">
-                  <span className="text-xs font-bold uppercase text-stryv-muted">Intent</span>
-                  <input
-                    className="h-10 rounded-lg border border-stryv-line bg-black/40 px-3 text-sm text-white outline-none focus:border-stryv-orange/60"
-                    onChange={(event) => setIntentName(event.target.value)}
-                    value={intentName}
-                  />
-                </label>
-                <label className="grid gap-2">
-                  <span className="text-xs font-bold uppercase text-stryv-muted">Minutes</span>
-                  <input
-                    className="h-10 rounded-lg border border-stryv-line bg-black/40 px-3 text-sm text-white outline-none focus:border-stryv-orange/60"
-                    min={1}
-                    onChange={(event) => setIntentDuration(Number(event.target.value))}
-                    type="number"
-                    value={intentDuration}
-                  />
-                </label>
-                <label className="grid gap-2">
-                  <span className="text-xs font-bold uppercase text-stryv-muted">Category</span>
-                  <ThemeSelect
-                    onChange={(value) => setIntentCategoryId(Number(value))}
-                    options={intentCategories.map((category) => ({
-                      label: category.name,
-                      value: String(category.id),
-                    }))}
-                    value={intentCategoryId ? String(intentCategoryId) : ''}
-                  />
-                </label>
-                <button
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-stryv-orange/40 bg-gradient-to-r from-stryv-ember/30 to-stryv-orange/20 px-4 text-sm font-bold text-stryv-orange hover:border-stryv-orange/70"
-                  onClick={startIntent}
-                  type="button"
-                >
-                  <Play size={15} />
-                  Start
-                </button>
-                <label className="grid gap-2 xl:col-span-4">
-                  <span className="text-xs font-bold uppercase text-stryv-muted">Allowed apps/sites</span>
-                  <input
-                    className="h-10 rounded-lg border border-stryv-line bg-black/40 px-3 text-sm text-white outline-none focus:border-stryv-orange/60"
-                    onChange={(event) => setIntentPatterns(event.target.value)}
-                    placeholder="TikTok, Instagram, YouTube"
-                    value={intentPatterns}
-                  />
-                </label>
-              </div>
-            )}
-          </Panel>
-
-          <section className="mt-5 grid gap-5 xl:grid-cols-2">
+              </Panel>
+              <section className="grid gap-5 xl:grid-cols-2">
             <Panel title="Categories" icon={<Database size={18} />}>
               <div className="grid gap-3">
                 <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_112px_auto]">
@@ -486,56 +447,263 @@ export function App() {
                 </div>
               </div>
             </Panel>
-          </section>
-
-          <Panel title="Timeline" icon={<ListTree size={18} />} className="mt-5" id="timeline">
-            <div className="grid gap-2">
-              {today.timeline.length > 0 ? (
-                today.timeline.map((session) => (
-                  <article
-                    key={session.id}
-                    className="grid gap-3 rounded-lg border border-stryv-line bg-black/40 p-3 sm:grid-cols-[132px_minmax(0,1fr)_96px] sm:items-center"
-                  >
-                    <div className="text-xs font-bold uppercase text-stryv-orange">
-                      {formatTime(session.startedAt)} - {session.endedAt ? formatTime(session.endedAt) : 'Now'}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span
-                          className={`h-2 w-2 shrink-0 rounded-full ${
-                            session.isIdle
-                              ? 'bg-stryv-muted'
-                              : 'bg-gradient-to-br from-stryv-amber to-stryv-ember shadow-neon'
-                          }`}
-                        />
-                        <h3 className="truncate text-sm font-bold text-white">{session.appName}</h3>
-                      </div>
-                      <p className="mt-1 truncate text-sm text-stryv-muted">
-                        {session.windowTitle ?? (session.isIdle ? 'Idle block' : 'Untitled window')}
-                      </p>
-                    </div>
-                    <div className="text-left text-sm font-bold text-white sm:text-right">
-                      {formatDuration(session.durationSeconds)}
-                    </div>
-                  </article>
-                ))
-              ) : (
-                <EmptyState text="The timeline will fill in as Stryv records activity changes." />
-              )}
-            </div>
-          </Panel>
-
-          <section className="mt-5 rounded-lg border border-stryv-line bg-stryv-panel p-5" id="data">
-            <h3 className="text-base font-bold text-white">Local Data</h3>
-            <dl className="mt-4 grid gap-3 text-sm">
-              <InfoRow label="Database file" value={databaseStatus?.path ?? 'Preparing local database...'} />
-              <InfoRow label="Poll interval" value={trackerStatus ? `${trackerStatus.pollIntervalSeconds}s` : '5s'} />
-              <InfoRow label="Idle threshold" value={trackerStatus ? `${trackerStatus.idleThresholdSeconds}s` : '300s'} />
-            </dl>
-          </section>
+              </section>
+              <section className="rounded-lg border border-stryv-line bg-stryv-panel p-5">
+                <h3 className="text-base font-bold text-white">Local Data</h3>
+                <dl className="mt-4 grid gap-3 text-sm">
+                  <InfoRow label="Database file" value={databaseStatus?.path ?? 'Preparing local database...'} />
+                  <InfoRow label="Poll interval" value={trackerStatus ? `${trackerStatus.pollIntervalSeconds}s` : '5s'} />
+                  <InfoRow label="Idle threshold" value={trackerStatus ? `${trackerStatus.idleThresholdSeconds}s` : '300s'} />
+                </dl>
+              </section>
+            </section>
+          )}
         </section>
       </div>
     </main>
+  );
+}
+
+function AppSidebar({
+  activePage,
+  isCollapsed,
+  onNavigate,
+  onToggle,
+}: {
+  activePage: AppPage;
+  isCollapsed: boolean;
+  onNavigate: (page: AppPage) => void;
+  onToggle: () => void;
+}) {
+  return (
+    <aside className="border-b border-stryv-line bg-black/95 px-3 pb-4 pt-12 lg:min-h-screen lg:border-b-0 lg:border-r">
+      <div className="flex items-center justify-between">
+        {!isCollapsed ? (
+          <span className="px-2 text-xs font-bold uppercase tracking-normal text-stryv-muted">Navigation</span>
+        ) : null}
+        <button
+          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="grid h-10 w-10 place-items-center rounded-lg border border-stryv-line text-stryv-muted hover:border-stryv-orange/45 hover:text-white"
+          onClick={onToggle}
+          type="button"
+        >
+          <Menu size={18} />
+        </button>
+      </div>
+      <nav className="mt-4 grid gap-2" aria-label="Primary">
+        <SidebarButton
+          icon={<Activity size={18} />}
+          isActive={activePage === 'home'}
+          isCollapsed={isCollapsed}
+          label="Today"
+          onClick={() => onNavigate('home')}
+        />
+        <SidebarButton
+          icon={<Settings size={18} />}
+          isActive={activePage === 'config'}
+          isCollapsed={isCollapsed}
+          label="Config"
+          onClick={() => onNavigate('config')}
+        />
+      </nav>
+    </aside>
+  );
+}
+
+function SidebarButton({
+  icon,
+  isActive,
+  isCollapsed,
+  label,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  isActive: boolean;
+  isCollapsed: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={`flex h-11 items-center gap-3 rounded-lg border px-3 text-sm font-bold transition ${
+        isActive
+          ? 'border-stryv-orange/35 bg-gradient-to-r from-stryv-ember/25 via-stryv-orange/10 to-transparent text-stryv-orange'
+          : 'border-transparent text-stryv-muted hover:bg-stryv-elevated hover:text-white'
+      } ${isCollapsed ? 'justify-center' : 'justify-start'}`}
+      onClick={onClick}
+      title={isCollapsed ? label : undefined}
+      type="button"
+    >
+      <span className="shrink-0">{icon}</span>
+      {!isCollapsed ? <span className="truncate">{label}</span> : null}
+    </button>
+  );
+}
+
+function HomePage({
+  calendarBlocks,
+  categorySummary,
+  databaseStatus,
+  today,
+  topDuration,
+}: {
+  calendarBlocks: CalendarBlock[];
+  categorySummary: CategorySummaryItem[];
+  databaseStatus: DatabaseStatus | null;
+  today: TodayDashboard;
+  topDuration: number;
+}) {
+  return (
+    <>
+      <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Daily metrics">
+        <MetricCard icon={<Timer size={20} />} label="Tracked Today" value={formatDuration(today.totalTrackedSeconds)} />
+        <MetricCard icon={<Activity size={20} />} label="Active Time" value={formatDuration(today.activeSeconds)} />
+        <MetricCard icon={<Moon size={20} />} label="Idle Time" value={formatDuration(today.idleSeconds)} />
+        <MetricCard icon={<Clock size={20} />} label="Break Time" value={formatDuration(today.breakSeconds)} />
+      </section>
+
+      <section className="mt-6 grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_330px]">
+        <Panel title="Day Calendar" icon={<CalendarIcon />}>
+          <DayCalendar blocks={calendarBlocks} />
+        </Panel>
+        <div className="grid content-start gap-5">
+          <DailySummary categorySummary={categorySummary} today={today} />
+          <Panel title="Current Session" icon={<Flame size={18} />}>
+            <div className="min-w-0">
+              <p className="truncate text-2xl font-bold text-white">{today.current.appName}</p>
+              <p className="mt-2 line-clamp-2 text-sm leading-6 text-stryv-muted">
+                {today.current.windowTitle ?? 'Waiting for the next active window sample.'}
+              </p>
+            </div>
+            <div className="mt-5 grid gap-3 text-sm">
+              <InfoRow label="Duration" value={formatDuration(today.current.durationSeconds)} />
+              <InfoRow label="Category" value={today.current.categoryName ?? 'Uncategorized'} />
+              <InfoRow label="Database" value={databaseStatus ? `Schema v${databaseStatus.schemaVersion}` : 'Preparing'} />
+            </div>
+          </Panel>
+          <Panel title="Top Apps" icon={<BarChart3 size={18} />}>
+            <div className="grid gap-3">
+              {today.topApps.length > 0 ? (
+                today.topApps.map((app) => (
+                  <div key={app.appName} className="grid gap-2">
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="min-w-0 truncate font-semibold text-white">{app.appName}</span>
+                      <span className="whitespace-nowrap text-stryv-muted">{formatDuration(app.durationSeconds)}</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-stryv-elevated">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-stryv-ember via-stryv-orange to-stryv-amber shadow-neon"
+                        style={{ width: `${Math.max(6, (app.durationSeconds / topDuration) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <EmptyState text="No app usage recorded today yet." />
+              )}
+            </div>
+          </Panel>
+        </div>
+      </section>
+    </>
+  );
+}
+
+function CalendarIcon() {
+  return <Clock size={18} />;
+}
+
+function DayCalendar({ blocks }: { blocks: CalendarBlock[] }) {
+  const hours = Array.from({ length: 24 }, (_, index) => index);
+
+  return (
+    <div className="relative h-[720px] overflow-hidden rounded-lg border border-stryv-line bg-black/35">
+      <div className="absolute inset-0 grid" style={{ gridTemplateRows: 'repeat(24, minmax(0, 1fr))' }}>
+        {hours.map((hour) => (
+          <div className="border-t border-stryv-line/70" key={hour}>
+            <span className="ml-3 -translate-y-2 bg-black/60 px-2 text-[11px] font-bold text-stryv-muted">
+              {formatHour(hour)}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="absolute bottom-0 left-20 right-4 top-0">
+        {blocks.map((block) => (
+          <article
+            className="absolute left-0 right-0 overflow-hidden rounded-md border border-white/10 px-3 py-2 shadow-[0_8px_22px_rgba(0,0,0,0.36)]"
+            key={block.id}
+            style={{
+              background: `linear-gradient(135deg, ${block.color}d9, ${block.color}8a)`,
+              top: `${block.topPercent}%`,
+              height: `${block.heightPercent}%`,
+            }}
+          >
+            <p className="truncate text-xs font-bold text-white">{block.appName}</p>
+            <p className="mt-1 truncate text-[11px] font-semibold text-white/80">
+              {formatTime(block.startedAt)} - {block.endedAt ? formatTime(block.endedAt) : 'Now'}
+            </p>
+          </article>
+        ))}
+      </div>
+      {blocks.length === 0 ? (
+        <div className="absolute inset-0 grid place-items-center px-6 text-center text-sm text-stryv-muted">
+          No activity blocks recorded for today yet.
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function DailySummary({
+  categorySummary,
+  today,
+}: {
+  categorySummary: CategorySummaryItem[];
+  today: TodayDashboard;
+}) {
+  const total = Math.max(today.activeSeconds + today.idleSeconds, 1);
+
+  return (
+    <Panel title="Daily Summary" icon={<BarChart3 size={18} />}>
+      <div className="grid gap-4">
+        <div className="grid grid-cols-2 gap-3">
+          <SummaryStat label="Tracked" value={formatDuration(today.totalTrackedSeconds)} />
+          <SummaryStat label="Active" value={formatDuration(today.activeSeconds)} />
+        </div>
+        <div className="grid gap-3">
+          {categorySummary.length > 0 ? (
+            categorySummary.map((item) => (
+              <div className="grid gap-2" key={item.name}>
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: item.color }} />
+                    <span className="truncate font-semibold text-white">{item.name}</span>
+                  </span>
+                  <span className="whitespace-nowrap text-stryv-muted">{formatDuration(item.durationSeconds)}</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-stryv-elevated">
+                  <div
+                    className="h-full rounded-full"
+                    style={{ background: item.color, width: `${Math.max(5, (item.durationSeconds / total) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            ))
+          ) : (
+            <EmptyState text="No category summary yet." />
+          )}
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function SummaryStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-stryv-line bg-black/30 p-3">
+      <p className="text-[11px] font-bold uppercase text-stryv-muted">{label}</p>
+      <p className="mt-1 text-lg font-bold text-white">{value}</p>
+    </div>
   );
 }
 
@@ -739,6 +907,44 @@ function EmptyState({ text }: { text: string }) {
   );
 }
 
+function getCategorySummary(today: TodayDashboard): CategorySummaryItem[] {
+  const durations = new Map<string, CategorySummaryItem>();
+
+  for (const session of today.timeline) {
+    const name = session.categoryName ?? (session.isIdle ? 'Idle' : 'Uncategorized');
+    const color = session.categoryColor ?? (session.isIdle ? '#737373' : '#a3a3a3');
+    const current = durations.get(name);
+
+    durations.set(name, {
+      name,
+      color,
+      durationSeconds: (current?.durationSeconds ?? 0) + session.durationSeconds,
+    });
+  }
+
+  return [...durations.values()].sort((a, b) => b.durationSeconds - a.durationSeconds);
+}
+
+function getCalendarBlocks(today: TodayDashboard): CalendarBlock[] {
+  const dayStart = new Date(`${today.day}T00:00:00`);
+  const dayEnd = new Date(dayStart);
+  dayEnd.setDate(dayEnd.getDate() + 1);
+  const totalDayMs = dayEnd.getTime() - dayStart.getTime();
+
+  return today.timeline.map((session) => {
+    const startedAt = Math.max(Date.parse(session.startedAt), dayStart.getTime());
+    const endedAt = Math.min(Date.parse(session.endedAt ?? new Date().toISOString()), dayEnd.getTime());
+    const durationMs = Math.max(5 * 60 * 1000, endedAt - startedAt);
+
+    return {
+      ...session,
+      color: session.categoryColor ?? (session.isIdle ? '#737373' : '#e8581a'),
+      topPercent: ((startedAt - dayStart.getTime()) / totalDayMs) * 100,
+      heightPercent: Math.min(100, (durationMs / totalDayMs) * 100),
+    };
+  });
+}
+
 function formatDuration(totalSeconds: number): string {
   const seconds = Math.max(0, Math.floor(totalSeconds));
   const hours = Math.floor(seconds / 3600);
@@ -749,6 +955,22 @@ function formatDuration(totalSeconds: number): string {
   }
 
   return `${minutes}m`;
+}
+
+function formatHour(hour: number): string {
+  if (hour === 0) {
+    return '12 AM';
+  }
+
+  if (hour < 12) {
+    return `${hour} AM`;
+  }
+
+  if (hour === 12) {
+    return '12 PM';
+  }
+
+  return `${hour - 12} PM`;
 }
 
 function formatTime(iso: string): string {

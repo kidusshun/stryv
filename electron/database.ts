@@ -28,6 +28,8 @@ export type ActivitySession = {
   executable_path: string | null;
   window_title: string | null;
   is_idle: number;
+  category_name?: string | null;
+  category_color?: string | null;
 };
 
 export type Category = {
@@ -130,6 +132,8 @@ export type TodayDashboard = {
     endedAt: string | null;
     durationSeconds: number;
     isIdle: boolean;
+    categoryName: string | null;
+    categoryColor: string | null;
   }>;
   current: CurrentActivity;
   activeIntent: IntentSession | null;
@@ -516,8 +520,11 @@ export function getTodayDashboard(now = new Date()): TodayDashboard {
   const rows = database
     .prepare(
       `
-        SELECT *
+        SELECT activity_sessions.*,
+               categories.name AS category_name,
+               categories.color AS category_color
         FROM activity_sessions
+        LEFT JOIN categories ON categories.id = activity_sessions.category_id
         WHERE started_at < @dayEnd
           AND COALESCE(ended_at, @now) >= @dayStart
         ORDER BY started_at ASC, id ASC
@@ -551,6 +558,8 @@ export function getTodayDashboard(now = new Date()): TodayDashboard {
       endedAt: session.ended_at,
       durationSeconds,
       isIdle: Boolean(session.is_idle),
+      categoryName: session.category_name ?? null,
+      categoryColor: session.category_color ?? null,
     };
   });
 
