@@ -1,6 +1,8 @@
 import {
   Activity,
   BarChart3,
+  Check,
+  ChevronDown,
   Clock,
   Database,
   Flame,
@@ -46,6 +48,11 @@ const previewDashboard: TodayDashboard = {
     durationSeconds: 0,
     categoryName: null,
   },
+};
+
+type SelectOption = {
+  label: string;
+  value: string;
 };
 
 export function App() {
@@ -328,17 +335,14 @@ export function App() {
                 </label>
                 <label className="grid gap-2">
                   <span className="text-xs font-bold uppercase text-stryv-muted">Category</span>
-                  <select
-                    className="h-10 rounded-lg border border-stryv-line bg-black/40 px-3 text-sm text-white outline-none focus:border-stryv-orange/60"
-                    onChange={(event) => setIntentCategoryId(Number(event.target.value))}
-                    value={intentCategoryId ?? ''}
-                  >
-                    {intentCategories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
+                  <ThemeSelect
+                    onChange={(value) => setIntentCategoryId(Number(value))}
+                    options={intentCategories.map((category) => ({
+                      label: category.name,
+                      value: String(category.id),
+                    }))}
+                    value={intentCategoryId ? String(intentCategoryId) : ''}
+                  />
                 </label>
                 <button
                   className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-stryv-orange/40 bg-gradient-to-r from-stryv-ember/30 to-stryv-orange/20 px-4 text-sm font-bold text-stryv-orange hover:border-stryv-orange/70"
@@ -424,17 +428,17 @@ export function App() {
             <Panel title="Rules" icon={<ListTree size={18} />}>
               <div className="grid gap-3">
                 <div className="grid gap-3 sm:grid-cols-[140px_minmax(0,1fr)]">
-                  <select
-                    className="h-10 rounded-lg border border-stryv-line bg-black/40 px-3 text-sm text-white outline-none focus:border-stryv-orange/60"
-                    onChange={(event) =>
-                      setRuleMatchType(event.target.value as 'app_name' | 'executable_path' | 'window_title')
+                  <ThemeSelect
+                    onChange={(value) =>
+                      setRuleMatchType(value as 'app_name' | 'executable_path' | 'window_title')
                     }
+                    options={[
+                      { label: 'Window title', value: 'window_title' },
+                      { label: 'App name', value: 'app_name' },
+                      { label: 'Executable', value: 'executable_path' },
+                    ]}
                     value={ruleMatchType}
-                  >
-                    <option value="window_title">Window title</option>
-                    <option value="app_name">App name</option>
-                    <option value="executable_path">Executable</option>
-                  </select>
+                  />
                   <input
                     className="h-10 rounded-lg border border-stryv-line bg-black/40 px-3 text-sm text-white outline-none focus:border-stryv-orange/60"
                     onChange={(event) => setRulePattern(event.target.value)}
@@ -443,17 +447,14 @@ export function App() {
                   />
                 </div>
                 <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-                  <select
-                    className="h-10 rounded-lg border border-stryv-line bg-black/40 px-3 text-sm text-white outline-none focus:border-stryv-orange/60"
-                    onChange={(event) => setRuleCategoryId(Number(event.target.value))}
-                    value={ruleCategoryId ?? ''}
-                  >
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
+                  <ThemeSelect
+                    onChange={(value) => setRuleCategoryId(Number(value))}
+                    options={categories.map((category) => ({
+                      label: category.name,
+                      value: String(category.id),
+                    }))}
+                    value={ruleCategoryId ? String(ruleCategoryId) : ''}
+                  />
                   <button
                     className="h-10 rounded-lg border border-stryv-orange/40 px-4 text-sm font-bold text-stryv-orange hover:border-stryv-orange/70"
                     onClick={createNewRule}
@@ -645,6 +646,78 @@ function StatusPill({ active = false, icon, label }: { active?: boolean; icon: R
     >
       {icon}
       {label}
+    </div>
+  );
+}
+
+function ThemeSelect({
+  onChange,
+  options,
+  value,
+}: {
+  onChange: (value: string) => void;
+  options: SelectOption[];
+  value: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedOption = options.find((option) => option.value === value);
+
+  return (
+    <div
+      className="relative min-w-0"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setIsOpen(false);
+        }
+      }}
+    >
+      <button
+        aria-expanded={isOpen}
+        className={`flex h-10 w-full min-w-0 items-center justify-between gap-3 rounded-lg border bg-black/45 px-3 text-left text-sm text-white outline-none transition ${
+          isOpen
+            ? 'border-stryv-orange/65 shadow-[0_0_0_3px_rgba(232,88,26,0.14)]'
+            : 'border-stryv-line hover:border-stryv-orange/35'
+        }`}
+        onClick={() => setIsOpen((current) => !current)}
+        type="button"
+      >
+        <span className={selectedOption ? 'truncate' : 'truncate text-stryv-muted'}>
+          {selectedOption?.label ?? 'Select'}
+        </span>
+        <ChevronDown
+          className={`shrink-0 text-stryv-orange transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          size={16}
+        />
+      </button>
+
+      {isOpen ? (
+        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-40 overflow-hidden rounded-lg border border-stryv-orange/35 bg-[#090909] shadow-[0_18px_42px_rgba(0,0,0,0.58),0_0_28px_rgba(232,88,26,0.12)]">
+          <div className="max-h-60 overflow-auto p-1">
+            {options.map((option) => {
+              const isSelected = option.value === value;
+
+              return (
+                <button
+                  className={`flex h-9 w-full items-center justify-between gap-3 rounded-md px-3 text-left text-sm transition ${
+                    isSelected
+                      ? 'bg-gradient-to-r from-stryv-ember/45 via-stryv-orange/25 to-transparent text-white'
+                      : 'text-stryv-text hover:bg-stryv-elevated hover:text-white'
+                  }`}
+                  key={option.value}
+                  onClick={() => {
+                    onChange(option.value);
+                    setIsOpen(false);
+                  }}
+                  type="button"
+                >
+                  <span className="min-w-0 truncate">{option.label}</span>
+                  {isSelected ? <Check className="shrink-0 text-stryv-orange" size={15} /> : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
