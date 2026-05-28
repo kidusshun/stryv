@@ -65,7 +65,11 @@ type CategorySummaryItem = {
   durationSeconds: number;
 };
 
-type CalendarBlock = TodayDashboard['timeline'][number] & {
+type CalendarBlock = {
+  id: string;
+  title: string;
+  startedAt: string;
+  endedAt: string | null;
   topPercent: number;
   heightPercent: number;
   color: string;
@@ -617,7 +621,7 @@ function DayCalendar({ blocks }: { blocks: CalendarBlock[] }) {
   const hours = Array.from({ length: 24 }, (_, index) => index);
 
   return (
-    <div className="relative h-[720px] overflow-hidden rounded-lg border border-stryv-line bg-black/35">
+    <div className="relative h-[1440px] overflow-hidden rounded-lg border border-stryv-line bg-black/35">
       <div className="absolute inset-0 grid" style={{ gridTemplateRows: 'repeat(24, minmax(0, 1fr))' }}>
         {hours.map((hour) => (
           <div className="border-t border-stryv-line/70" key={hour}>
@@ -630,18 +634,22 @@ function DayCalendar({ blocks }: { blocks: CalendarBlock[] }) {
       <div className="absolute bottom-0 left-20 right-4 top-0">
         {blocks.map((block) => (
           <article
-            className="absolute left-0 right-0 overflow-hidden rounded-md border border-white/10 px-3 py-2 shadow-[0_8px_22px_rgba(0,0,0,0.36)]"
+            className="absolute left-0 right-0 overflow-hidden rounded-md border border-stryv-orange/35 bg-stryv-elevated px-3 py-2"
             key={block.id}
             style={{
-              background: `linear-gradient(135deg, ${block.color}d9, ${block.color}8a)`,
+              borderLeft: `4px solid ${block.color}`,
               top: `${block.topPercent}%`,
               height: `${block.heightPercent}%`,
+              minHeight: 36,
             }}
           >
-            <p className="truncate text-xs font-bold text-white">{block.appName}</p>
-            <p className="mt-1 truncate text-[11px] font-semibold text-white/80">
-              {formatTime(block.startedAt)} - {block.endedAt ? formatTime(block.endedAt) : 'Now'}
-            </p>
+            <div className="absolute inset-0 opacity-20" style={{ background: block.color }} />
+            <div className="relative min-w-0">
+              <p className="truncate text-xs font-bold text-white">{block.title}</p>
+              <p className="mt-1 truncate text-[11px] font-semibold text-stryv-text/80">
+                {formatTime(block.startedAt)} - {block.endedAt ? formatTime(block.endedAt) : 'Now'}
+              </p>
+            </div>
           </article>
         ))}
       </div>
@@ -930,19 +938,57 @@ function getCalendarBlocks(today: TodayDashboard): CalendarBlock[] {
   const dayEnd = new Date(dayStart);
   dayEnd.setDate(dayEnd.getDate() + 1);
   const totalDayMs = dayEnd.getTime() - dayStart.getTime();
+  const blocks: CalendarBlock[] = [];
+  let currentSpan: {
+    categories: Set<string>;
+    endedAt: string | null;
+    startedAt: string;
+  } | null = null;
 
-  return today.timeline.map((session) => {
-    const startedAt = Math.max(Date.parse(session.startedAt), dayStart.getTime());
-    const endedAt = Math.min(Date.parse(session.endedAt ?? new Date().toISOString()), dayEnd.getTime());
+  const flushSpan = () => {
+    if (!currentSpan) {
+      return;
+    }
+
+    const startedAt = Math.max(Date.parse(currentSpan.startedAt), dayStart.getTime());
+    const endedAt = Math.min(Date.parse(currentSpan.endedAt ?? new Date().toISOString()), dayEnd.getTime());
     const durationMs = Math.max(5 * 60 * 1000, endedAt - startedAt);
+    const categories = [...currentSpan.categories];
 
-    return {
-      ...session,
-      color: session.categoryColor ?? (session.isIdle ? '#737373' : '#e8581a'),
+    blocks.push({
+      id: `${currentSpan.startedAt}-${currentSpan.endedAt ?? 'now'}`,
+      title: categories.length > 0 ? categories.join(', ') : 'Uncategorized',
+      startedAt: currentSpan.startedAt,
+      endedAt: currentSpan.endedAt,
+      color: '#e8581a',
       topPercent: ((startedAt - dayStart.getTime()) / totalDayMs) * 100,
       heightPercent: Math.min(100, (durationMs / totalDayMs) * 100),
-    };
-  });
+    });
+
+    currentSpan = null;
+  };
+
+  for (const session of today.timeline) {
+    if (session.isIdle) {
+      flushSpan();
+      continue;
+    }
+
+    if (!currentSpan) {
+      currentSpan = {
+        categories: new Set(),
+        endedAt: session.endedAt,
+        startedAt: session.startedAt,
+      };
+    }
+
+    currentSpan.categories.add(session.categoryName ?? 'Uncategorized');
+    currentSpan.endedAt = session.endedAt;
+  }
+
+  flushSpan();
+
+  return blocks;
 }
 
 function formatDuration(totalSeconds: number): string {
