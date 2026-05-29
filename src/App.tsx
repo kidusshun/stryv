@@ -5,19 +5,16 @@ import {
   ChevronDown,
   Clock,
   Database,
-  Flame,
   ListTree,
   Maximize2,
   Menu,
   Minus,
   Monitor,
-  Moon,
   Play,
   Settings,
   Square,
   X,
   ShieldCheck,
-  Timer,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -73,6 +70,7 @@ type CalendarBlock = {
   topPercent: number;
   heightPercent: number;
   color: string;
+  isCompact: boolean;
 };
 
 export function App() {
@@ -129,10 +127,6 @@ export function App() {
     });
   }, []);
 
-  const topDuration = useMemo(
-    () => Math.max(...today.topApps.map((app) => app.durationSeconds), 1),
-    [today.topApps],
-  );
   const intentCategories = categories.filter(
     (category) => Boolean(category.is_work) || Boolean(category.is_focus),
   );
@@ -230,33 +224,35 @@ export function App() {
           onToggle={() => setIsSidebarCollapsed((current) => !current)}
         />
 
-        <section className="min-h-screen min-w-0 overflow-auto px-5 pb-6 pt-12 sm:px-7 lg:px-9">
-          <header className="flex flex-col gap-4 border-b border-stryv-line pb-6 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="bg-gradient-to-r from-stryv-amber via-stryv-orange to-stryv-ember bg-clip-text text-xs font-bold uppercase text-transparent">
-                {activePage === 'home' ? 'Daily activity' : 'Stryv settings'}
-              </p>
-              <h2 className="mt-1 text-3xl font-bold tracking-normal text-white">
-                {activePage === 'home' ? 'Today' : 'Configuration'}
-              </h2>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusPill icon={<ShieldCheck size={16} />} label="Local-first" />
-              <StatusPill
-                icon={<Monitor size={16} />}
-                label={trackerStatus?.isRunning ? 'Tracking live' : 'Tracker unavailable'}
-                active={Boolean(trackerStatus?.isRunning)}
-              />
-            </div>
-          </header>
+        <section
+          className={`min-w-0 px-5 pb-6 pt-12 sm:px-7 lg:px-9 ${
+            activePage === 'home' ? 'h-screen overflow-hidden' : 'min-h-screen overflow-auto'
+          }`}
+        >
+          {activePage === 'config' ? (
+            <header className="flex flex-col gap-4 border-b border-stryv-line pb-6 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="bg-gradient-to-r from-stryv-amber via-stryv-orange to-stryv-ember bg-clip-text text-xs font-bold uppercase text-transparent">
+                  Stryv settings
+                </p>
+                <h2 className="mt-1 text-3xl font-bold tracking-normal text-white">Configuration</h2>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusPill icon={<ShieldCheck size={16} />} label="Local-first" />
+                <StatusPill
+                  icon={<Monitor size={16} />}
+                  label={trackerStatus?.isRunning ? 'Tracking live' : 'Tracker unavailable'}
+                  active={Boolean(trackerStatus?.isRunning)}
+                />
+              </div>
+            </header>
+          ) : null}
 
           {activePage === 'home' ? (
             <HomePage
               calendarBlocks={calendarBlocks}
               categorySummary={categorySummary}
-              databaseStatus={databaseStatus}
               today={today}
-              topDuration={topDuration}
             />
           ) : (
             <section className="mt-6 grid gap-5">
@@ -547,69 +543,23 @@ function SidebarButton({
 function HomePage({
   calendarBlocks,
   categorySummary,
-  databaseStatus,
   today,
-  topDuration,
 }: {
   calendarBlocks: CalendarBlock[];
   categorySummary: CategorySummaryItem[];
-  databaseStatus: DatabaseStatus | null;
   today: TodayDashboard;
-  topDuration: number;
 }) {
   return (
-    <>
-      <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Daily metrics">
-        <MetricCard icon={<Timer size={20} />} label="Tracked Today" value={formatDuration(today.totalTrackedSeconds)} />
-        <MetricCard icon={<Activity size={20} />} label="Active Time" value={formatDuration(today.activeSeconds)} />
-        <MetricCard icon={<Moon size={20} />} label="Idle Time" value={formatDuration(today.idleSeconds)} />
-        <MetricCard icon={<Clock size={20} />} label="Break Time" value={formatDuration(today.breakSeconds)} />
-      </section>
-
-      <section className="mt-6 grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_330px]">
-        <Panel title="Day Calendar" icon={<CalendarIcon />}>
+    <section className="grid h-full min-h-0 min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <Panel title="Calendar" icon={<CalendarIcon />} className="flex min-h-0 flex-col">
+        <div className="min-h-0 flex-1 overflow-auto pr-1">
           <DayCalendar blocks={calendarBlocks} />
-        </Panel>
-        <div className="grid content-start gap-5">
-          <DailySummary categorySummary={categorySummary} today={today} />
-          <Panel title="Current Session" icon={<Flame size={18} />}>
-            <div className="min-w-0">
-              <p className="truncate text-2xl font-bold text-white">{today.current.appName}</p>
-              <p className="mt-2 line-clamp-2 text-sm leading-6 text-stryv-muted">
-                {today.current.windowTitle ?? 'Waiting for the next active window sample.'}
-              </p>
-            </div>
-            <div className="mt-5 grid gap-3 text-sm">
-              <InfoRow label="Duration" value={formatDuration(today.current.durationSeconds)} />
-              <InfoRow label="Category" value={today.current.categoryName ?? 'Uncategorized'} />
-              <InfoRow label="Database" value={databaseStatus ? `Schema v${databaseStatus.schemaVersion}` : 'Preparing'} />
-            </div>
-          </Panel>
-          <Panel title="Top Apps" icon={<BarChart3 size={18} />}>
-            <div className="grid gap-3">
-              {today.topApps.length > 0 ? (
-                today.topApps.map((app) => (
-                  <div key={app.appName} className="grid gap-2">
-                    <div className="flex items-center justify-between gap-3 text-sm">
-                      <span className="min-w-0 truncate font-semibold text-white">{app.appName}</span>
-                      <span className="whitespace-nowrap text-stryv-muted">{formatDuration(app.durationSeconds)}</span>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-stryv-elevated">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-stryv-ember via-stryv-orange to-stryv-amber shadow-neon"
-                        style={{ width: `${Math.max(6, (app.durationSeconds / topDuration) * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <EmptyState text="No app usage recorded today yet." />
-              )}
-            </div>
-          </Panel>
         </div>
-      </section>
-    </>
+      </Panel>
+      <aside className="min-h-0 overflow-auto">
+        <DailySummary categorySummary={categorySummary} today={today} />
+      </aside>
+    </section>
   );
 }
 
@@ -640,12 +590,18 @@ function DayCalendar({ blocks }: { blocks: CalendarBlock[] }) {
               borderLeft: `4px solid ${block.color}`,
               top: `${block.topPercent}%`,
               height: `${block.heightPercent}%`,
+              minHeight: block.isCompact ? 22 : undefined,
             }}
+            title={`${block.title} · ${formatTime(block.startedAt)} - ${block.endedAt ? formatTime(block.endedAt) : 'Now'}`}
           >
             <div className="absolute inset-0 opacity-20" style={{ background: block.color }} />
-            <div className="relative min-w-0">
+            <div className={`relative min-w-0 ${block.isCompact ? 'flex h-full items-center gap-2' : ''}`}>
               <p className="truncate text-xs font-bold text-white">{block.title}</p>
-              <p className="mt-1 truncate text-[11px] font-semibold text-stryv-text/80">
+              <p
+                className={`truncate text-[11px] font-semibold text-stryv-text/80 ${
+                  block.isCompact ? 'shrink-0' : 'mt-1'
+                }`}
+              >
                 {formatTime(block.startedAt)} - {block.endedAt ? formatTime(block.endedAt) : 'Now'}
               </p>
             </div>
@@ -711,19 +667,6 @@ function SummaryStat({ label, value }: { label: string; value: string }) {
       <p className="text-[11px] font-bold uppercase text-stryv-muted">{label}</p>
       <p className="mt-1 text-lg font-bold text-white">{value}</p>
     </div>
-  );
-}
-
-function MetricCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <article className="rounded-lg border border-stryv-line bg-stryv-panel p-5 shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
-      <div className="flex items-center justify-between gap-3 text-stryv-orange">
-        {icon}
-        <span className="h-2 w-2 rounded-full bg-gradient-to-br from-stryv-amber to-stryv-ember shadow-neon" />
-      </div>
-      <p className="mt-5 text-xs font-bold uppercase text-stryv-muted">{label}</p>
-      <strong className="mt-2 block text-2xl font-bold tracking-normal text-white">{value}</strong>
-    </article>
   );
 }
 
@@ -964,6 +907,7 @@ function getCalendarBlocks(today: TodayDashboard): CalendarBlock[] {
       color: '#e8581a',
       topPercent: ((startedAt - dayStart.getTime()) / totalDayMs) * 100,
       heightPercent: Math.min(100, (durationMs / totalDayMs) * 100),
+      isCompact: durationMs < 28 * 60 * 1000,
     });
 
     currentSpan = null;
