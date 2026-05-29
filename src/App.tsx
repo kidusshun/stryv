@@ -640,7 +640,6 @@ function DayCalendar({ blocks }: { blocks: CalendarBlock[] }) {
               borderLeft: `4px solid ${block.color}`,
               top: `${block.topPercent}%`,
               height: `${block.heightPercent}%`,
-              minHeight: 36,
             }}
           >
             <div className="absolute inset-0 opacity-20" style={{ background: block.color }} />
@@ -918,7 +917,9 @@ function EmptyState({ text }: { text: string }) {
 function getCategorySummary(today: TodayDashboard): CategorySummaryItem[] {
   const durations = new Map<string, CategorySummaryItem>();
 
-  for (const session of today.timeline) {
+  const sessions = [...today.timeline].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt));
+
+  for (const session of sessions) {
     const name = session.categoryName ?? (session.isIdle ? 'Idle' : 'Uncategorized');
     const color = session.categoryColor ?? (session.isIdle ? '#737373' : '#a3a3a3');
     const current = durations.get(name);
@@ -952,7 +953,7 @@ function getCalendarBlocks(today: TodayDashboard): CalendarBlock[] {
 
     const startedAt = Math.max(Date.parse(currentSpan.startedAt), dayStart.getTime());
     const endedAt = Math.min(Date.parse(currentSpan.endedAt ?? new Date().toISOString()), dayEnd.getTime());
-    const durationMs = Math.max(5 * 60 * 1000, endedAt - startedAt);
+    const durationMs = Math.max(60 * 1000, endedAt - startedAt);
     const categories = [...currentSpan.categories];
 
     blocks.push({
@@ -968,7 +969,9 @@ function getCalendarBlocks(today: TodayDashboard): CalendarBlock[] {
     currentSpan = null;
   };
 
-  for (const session of today.timeline) {
+  const sessions = [...today.timeline].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt));
+
+  for (const session of sessions) {
     if (session.isIdle) {
       flushSpan();
       continue;
