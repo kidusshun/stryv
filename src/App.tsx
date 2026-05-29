@@ -645,18 +645,18 @@ function DailySummary({
         </div>
         {activeCategories.length > 0 ? (
           <>
-            <div className="grid gap-4 sm:grid-cols-[112px_minmax(0,1fr)] sm:items-center xl:grid-cols-1">
+            <div className="grid gap-4 sm:grid-cols-[112px_minmax(0,1fr)] sm:items-center">
               <CategoryRing items={activeCategories} totalSeconds={distributionSeconds} />
               <div className="grid gap-2">
                 {topCategories.map((item) => (
-                  <CategoryLegendItem item={item} key={item.name} totalSeconds={distributionSeconds} />
+                  <CategoryLegendItem item={item} key={item.name} />
                 ))}
               </div>
             </div>
             <div className="grid gap-3">
-              <p className="text-[11px] font-bold uppercase text-stryv-muted">Top Categories</p>
-              {topCategories.map((item) => (
-                <TopCategoryRow item={item} key={item.name} totalSeconds={distributionSeconds} />
+              <p className="text-[11px] font-bold uppercase text-stryv-muted">Top Apps</p>
+              {today.topApps.slice(0, 5).map((app) => (
+                <TopAppRow app={app} key={app.appName} totalSeconds={Math.max(today.activeSeconds, 1)} />
               ))}
             </div>
           </>
@@ -707,10 +707,8 @@ function CategoryRing({
 
 function CategoryLegendItem({
   item,
-  totalSeconds,
 }: {
   item: CategorySummaryItem;
-  totalSeconds: number;
 }) {
   return (
     <div className="flex min-w-0 items-center justify-between gap-3 text-sm">
@@ -719,32 +717,34 @@ function CategoryLegendItem({
         <span className="truncate font-semibold text-white">{item.name}</span>
       </span>
       <span className="whitespace-nowrap text-stryv-muted">{formatDuration(item.durationSeconds)}</span>
-      <span className="w-10 text-right text-xs font-bold text-stryv-muted">
-        {Math.round((item.durationSeconds / totalSeconds) * 100)}%
-      </span>
     </div>
   );
 }
 
-function TopCategoryRow({
-  item,
+function TopAppRow({
+  app,
   totalSeconds,
 }: {
-  item: CategorySummaryItem;
+  app: {
+    appName: string;
+    durationSeconds: number;
+  };
   totalSeconds: number;
 }) {
-  const percent = Math.round((item.durationSeconds / totalSeconds) * 100);
+  const percent = Math.round((app.durationSeconds / totalSeconds) * 100);
 
   return (
-    <div className="grid grid-cols-[42px_minmax(0,1fr)_auto] items-center gap-3 text-sm">
-      <span className="text-xs font-bold text-stryv-muted">{percent}%</span>
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-sm">
       <div className="min-w-0">
         <div className="h-2 overflow-hidden rounded-full bg-stryv-elevated">
-          <div className="h-full rounded-full" style={{ background: item.color, width: `${Math.max(5, percent)}%` }} />
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-stryv-ember via-stryv-orange to-stryv-amber"
+            style={{ width: `${Math.max(5, percent)}%` }}
+          />
         </div>
-        <p className="mt-1 truncate font-semibold text-white">{item.name}</p>
+        <p className="mt-1 truncate font-semibold text-white">{app.appName}</p>
       </div>
-      <span className="whitespace-nowrap text-stryv-muted">{formatDuration(item.durationSeconds)}</span>
+      <span className="whitespace-nowrap text-stryv-muted">{formatDuration(app.durationSeconds)}</span>
     </div>
   );
 }
