@@ -25,16 +25,16 @@ function categoryId(name) {
 const sessions = [
   ['Deep work planning', 'Stryv', 'Focus Work', '08:00', '08:55', false],
   ['Design reference review', 'Figma', 'Creative', '08:55', '09:25', false],
-  ['Idle', 'Idle', 'Idle', '09:25', '09:55', true],
+  ['Break', 'Break', 'Break', '09:25', '09:55', true],
   ['React implementation', 'Codex', 'Focus Work', '09:55', '10:40', false],
   ['Docs lookup', 'YouTube', 'Learning', '10:40', '11:10', false],
-  ['Idle', 'Idle', 'Idle', '11:10', '11:35', true],
+  ['Break', 'Break', 'Break', '11:10', '11:35', true],
   ['Team messages', 'Telegram Desktop', 'Communication', '11:35', '12:05', false],
-  ['Lunch break', 'Idle', 'Idle', '12:05', '13:05', true],
+  ['Lunch break', 'Break', 'Break', '12:05', '13:05', true],
   ['Rule cleanup', 'Stryv', 'Admin', '13:05', '13:35', false],
   ['Category tuning', 'Stryv', 'Planning', '13:35', '14:10', false],
   ['Content research', 'TikTok', 'Learning', '14:10', '14:45', false],
-  ['Idle', 'Idle', 'Idle', '14:45', '15:15', true],
+  ['Break', 'Break', 'Break', '14:45', '15:15', true],
   ['UI polish', 'Codex', 'Creative', '15:15', '16:30', false],
 ];
 

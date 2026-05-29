@@ -133,9 +133,9 @@ async function getActivitySample(): Promise<ActivitySampleInput> {
   if (isIdle) {
     return {
       sampledAt,
-      appName: 'Idle',
+      appName: 'Break',
       executablePath: null,
-      windowTitle: 'Idle',
+      windowTitle: 'Break',
       isIdle: true,
     };
   }

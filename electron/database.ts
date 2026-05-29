@@ -776,7 +776,6 @@ function seedDefaults(database: Database.Database): void {
     ['Learning', '#22c55e', 1, 1, 0, 0, 0, 0],
     ['Creative', '#f59e0b', 1, 1, 0, 0, 0, 0],
     ['Break', '#84cc16', 0, 0, 1, 0, 1, 0],
-    ['Idle', '#737373', 0, 0, 0, 1, 0, 0],
     ['Personal', '#e879f9', 0, 0, 0, 0, 0, 0],
     ['Entertainment', '#ef4444', 0, 0, 0, 0, 1, 1],
     ['Social', '#ec4899', 0, 0, 0, 0, 1, 1],
@@ -817,6 +816,7 @@ function seedDefaults(database: Database.Database): void {
     insertSetting.run({ key: 'tracking.idleThresholdSeconds', value: '300' });
     insertSetting.run({ key: 'tracking.sessionMergeGraceSeconds', value: '15' });
     insertSetting.run({ key: 'window.closeToTray', value: 'true' });
+    database.prepare("DELETE FROM categories WHERE name = 'Idle' AND is_builtin = 1").run();
   })();
 }
 
@@ -852,7 +852,7 @@ function resolveCategoryForSample(
   now: Date,
 ): { categoryId: number | null; intentSessionId: number | null } {
   if (sample.isIdle) {
-    return { categoryId: getCategoryIdByName(database, 'Idle'), intentSessionId: null };
+    return { categoryId: getCategoryIdByName(database, 'Break'), intentSessionId: null };
   }
 
   completeExpiredIntentSessions(now);
