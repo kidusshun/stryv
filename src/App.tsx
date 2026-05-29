@@ -625,12 +625,16 @@ function DailySummary({
   categorySummary: CategorySummaryItem[];
   today: TodayDashboard;
 }) {
-  const trackedSeconds = Math.max(today.totalTrackedSeconds, 1);
+  const activeCategories = categorySummary.filter((item) => item.name !== 'Idle');
+  const distributionSeconds = Math.max(
+    activeCategories.reduce((totalSeconds, item) => totalSeconds + item.durationSeconds, 0),
+    1,
+  );
   const workSeconds = categorySummary
     .filter((item) => item.isWork)
     .reduce((totalSeconds, item) => totalSeconds + item.durationSeconds, 0);
-  const workPercent = Math.round((workSeconds / trackedSeconds) * 100);
-  const topCategories = categorySummary.slice(0, 3);
+  const workPercent = Math.round((workSeconds / distributionSeconds) * 100);
+  const topCategories = activeCategories.slice(0, 3);
 
   return (
     <Panel title="Daily Summary" icon={<BarChart3 size={18} />}>
@@ -639,20 +643,20 @@ function DailySummary({
           <SummaryStat label="Work Hours" value={formatDuration(workSeconds)} />
           <SummaryStat label="Work Share" value={`${workPercent}%`} />
         </div>
-        {categorySummary.length > 0 ? (
+        {activeCategories.length > 0 ? (
           <>
             <div className="grid gap-4 sm:grid-cols-[112px_minmax(0,1fr)] sm:items-center xl:grid-cols-1">
-              <CategoryRing items={categorySummary} totalSeconds={trackedSeconds} />
+              <CategoryRing items={activeCategories} totalSeconds={distributionSeconds} />
               <div className="grid gap-2">
                 {topCategories.map((item) => (
-                  <CategoryLegendItem item={item} key={item.name} totalSeconds={trackedSeconds} />
+                  <CategoryLegendItem item={item} key={item.name} totalSeconds={distributionSeconds} />
                 ))}
               </div>
             </div>
             <div className="grid gap-3">
               <p className="text-[11px] font-bold uppercase text-stryv-muted">Top Categories</p>
               {topCategories.map((item) => (
-                <TopCategoryRow item={item} key={item.name} totalSeconds={trackedSeconds} />
+                <TopCategoryRow item={item} key={item.name} totalSeconds={distributionSeconds} />
               ))}
             </div>
           </>
