@@ -951,8 +951,12 @@ function getCategorySummary(today: TodayDashboard): CategorySummaryItem[] {
   const sessions = [...today.timeline].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt));
 
   for (const session of sessions) {
-    const name = session.categoryName ?? (session.isIdle ? 'Idle' : 'Uncategorized');
-    const color = session.categoryColor ?? (session.isIdle ? '#737373' : '#a3a3a3');
+    if (session.isIdle) {
+      continue;
+    }
+
+    const name = session.categoryName ?? 'Uncategorized';
+    const color = session.categoryColor ?? '#a3a3a3';
     const current = durations.get(name);
 
     durations.set(name, {
