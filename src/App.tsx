@@ -734,16 +734,14 @@ function TopAppRow({
   const percent = Math.round((app.durationSeconds / totalSeconds) * 100);
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-sm">
-      <div className="min-w-0">
-        <div className="h-2 overflow-hidden rounded-full bg-stryv-elevated">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-stryv-ember via-stryv-orange to-stryv-amber"
-            style={{ width: `${Math.max(5, percent)}%` }}
-          />
-        </div>
-        <p className="mt-1 truncate font-semibold text-white">{app.appName}</p>
+    <div className="grid grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-3 text-sm">
+      <div className="h-1.5 overflow-hidden rounded-full bg-stryv-elevated">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-stryv-ember via-stryv-orange to-stryv-amber"
+          style={{ width: `${Math.max(10, percent)}%` }}
+        />
       </div>
+      <span className="min-w-0 truncate font-semibold text-white">{app.appName}</span>
       <span className="whitespace-nowrap text-stryv-muted">{formatDuration(app.durationSeconds)}</span>
     </div>
   );
