@@ -30,6 +30,7 @@ export type ActivitySession = {
   is_idle: number;
   category_name?: string | null;
   category_color?: string | null;
+  category_is_work?: number | null;
 };
 
 export type Category = {
@@ -134,6 +135,7 @@ export type TodayDashboard = {
     isIdle: boolean;
     categoryName: string | null;
     categoryColor: string | null;
+    categoryIsWork: boolean;
   }>;
   current: CurrentActivity;
   activeIntent: IntentSession | null;
@@ -522,7 +524,8 @@ export function getTodayDashboard(now = new Date()): TodayDashboard {
       `
         SELECT activity_sessions.*,
                categories.name AS category_name,
-               categories.color AS category_color
+               categories.color AS category_color,
+               categories.is_work AS category_is_work
         FROM activity_sessions
         LEFT JOIN categories ON categories.id = activity_sessions.category_id
         WHERE started_at < @dayEnd
@@ -560,6 +563,7 @@ export function getTodayDashboard(now = new Date()): TodayDashboard {
       isIdle: Boolean(session.is_idle),
       categoryName: session.category_name ?? null,
       categoryColor: session.category_color ?? null,
+      categoryIsWork: Boolean(session.category_is_work),
     };
   });
 

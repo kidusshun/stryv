@@ -60,6 +60,7 @@ type CategorySummaryItem = {
   name: string;
   color: string;
   durationSeconds: number;
+  isWork: boolean;
 };
 
 type CalendarBlock = {
@@ -624,40 +625,123 @@ function DailySummary({
   categorySummary: CategorySummaryItem[];
   today: TodayDashboard;
 }) {
-  const total = Math.max(today.activeSeconds + today.idleSeconds, 1);
+  const trackedSeconds = Math.max(today.totalTrackedSeconds, 1);
+  const workSeconds = categorySummary
+    .filter((item) => item.isWork)
+    .reduce((totalSeconds, item) => totalSeconds + item.durationSeconds, 0);
+  const workPercent = Math.round((workSeconds / trackedSeconds) * 100);
+  const topCategories = categorySummary.slice(0, 3);
 
   return (
     <Panel title="Daily Summary" icon={<BarChart3 size={18} />}>
-      <div className="grid gap-4">
+      <div className="grid gap-5">
         <div className="grid grid-cols-2 gap-3">
-          <SummaryStat label="Tracked" value={formatDuration(today.totalTrackedSeconds)} />
-          <SummaryStat label="Active" value={formatDuration(today.activeSeconds)} />
+          <SummaryStat label="Work Hours" value={formatDuration(workSeconds)} />
+          <SummaryStat label="Work Share" value={`${workPercent}%`} />
         </div>
-        <div className="grid gap-3">
-          {categorySummary.length > 0 ? (
-            categorySummary.map((item) => (
-              <div className="grid gap-2" key={item.name}>
-                <div className="flex items-center justify-between gap-3 text-sm">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: item.color }} />
-                    <span className="truncate font-semibold text-white">{item.name}</span>
-                  </span>
-                  <span className="whitespace-nowrap text-stryv-muted">{formatDuration(item.durationSeconds)}</span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-stryv-elevated">
-                  <div
-                    className="h-full rounded-full"
-                    style={{ background: item.color, width: `${Math.max(5, (item.durationSeconds / total) * 100)}%` }}
-                  />
-                </div>
+        {categorySummary.length > 0 ? (
+          <>
+            <div className="grid gap-4 sm:grid-cols-[112px_minmax(0,1fr)] sm:items-center xl:grid-cols-1">
+              <CategoryRing items={categorySummary} totalSeconds={trackedSeconds} />
+              <div className="grid gap-2">
+                {topCategories.map((item) => (
+                  <CategoryLegendItem item={item} key={item.name} totalSeconds={trackedSeconds} />
+                ))}
               </div>
-            ))
-          ) : (
-            <EmptyState text="No category summary yet." />
-          )}
-        </div>
+            </div>
+            <div className="grid gap-3">
+              <p className="text-[11px] font-bold uppercase text-stryv-muted">Top Categories</p>
+              {topCategories.map((item) => (
+                <TopCategoryRow item={item} key={item.name} totalSeconds={trackedSeconds} />
+              ))}
+            </div>
+          </>
+        ) : (
+          <EmptyState text="No category summary yet." />
+        )}
       </div>
     </Panel>
+  );
+}
+
+function CategoryRing({
+  items,
+  totalSeconds,
+}: {
+  items: CategorySummaryItem[];
+  totalSeconds: number;
+}) {
+  const radius = 38;
+  const circumference = 2 * Math.PI * radius;
+  let offset = 0;
+
+  return (
+    <svg className="h-28 w-28 -rotate-90" viewBox="0 0 96 96" aria-label="Category distribution">
+      <circle cx="48" cy="48" fill="none" r={radius} stroke="#202020" strokeWidth="10" />
+      {items.map((item) => {
+        const segmentLength = (item.durationSeconds / totalSeconds) * circumference;
+        const circle = (
+          <circle
+            cx="48"
+            cy="48"
+            fill="none"
+            key={item.name}
+            r={radius}
+            stroke={item.color}
+            strokeDasharray={`${segmentLength} ${circumference - segmentLength}`}
+            strokeDashoffset={-offset}
+            strokeLinecap="round"
+            strokeWidth="10"
+          />
+        );
+        offset += segmentLength;
+        return circle;
+      })}
+    </svg>
+  );
+}
+
+function CategoryLegendItem({
+  item,
+  totalSeconds,
+}: {
+  item: CategorySummaryItem;
+  totalSeconds: number;
+}) {
+  return (
+    <div className="flex min-w-0 items-center justify-between gap-3 text-sm">
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: item.color }} />
+        <span className="truncate font-semibold text-white">{item.name}</span>
+      </span>
+      <span className="whitespace-nowrap text-stryv-muted">{formatDuration(item.durationSeconds)}</span>
+      <span className="w-10 text-right text-xs font-bold text-stryv-muted">
+        {Math.round((item.durationSeconds / totalSeconds) * 100)}%
+      </span>
+    </div>
+  );
+}
+
+function TopCategoryRow({
+  item,
+  totalSeconds,
+}: {
+  item: CategorySummaryItem;
+  totalSeconds: number;
+}) {
+  const percent = Math.round((item.durationSeconds / totalSeconds) * 100);
+
+  return (
+    <div className="grid grid-cols-[42px_minmax(0,1fr)_auto] items-center gap-3 text-sm">
+      <span className="text-xs font-bold text-stryv-muted">{percent}%</span>
+      <div className="min-w-0">
+        <div className="h-2 overflow-hidden rounded-full bg-stryv-elevated">
+          <div className="h-full rounded-full" style={{ background: item.color, width: `${Math.max(5, percent)}%` }} />
+        </div>
+        <p className="mt-1 truncate font-semibold text-white">{item.name}</p>
+      </div>
+      <span className="whitespace-nowrap text-stryv-muted">{formatDuration(item.durationSeconds)}</span>
+    </div>
   );
 }
 
@@ -870,6 +954,7 @@ function getCategorySummary(today: TodayDashboard): CategorySummaryItem[] {
     durations.set(name, {
       name,
       color,
+      isWork: Boolean(session.categoryIsWork),
       durationSeconds: (current?.durationSeconds ?? 0) + session.durationSeconds,
     });
   }
