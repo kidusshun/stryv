@@ -1,0 +1,89 @@
+name: Stryv
+
+options:
+  bundleIdPrefix: com.stryv
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    DEVELOPMENT_TEAM: PUWH8RNHCN
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "Apple Development"
+    PROVISIONING_PROFILE_SPECIFIER: ""
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    DEAD_CODE_STRIPPING: YES
+
+targets:
+  StryvCore:
+    type: library.static
+    platform: macOS
+    sources: [StryvCore]
+
+  StryvBlockd:
+    type: tool
+    platform: macOS
+    sources: [StryvBlockd]
+    dependencies:
+      - target: StryvCore
+    settings:
+      base:
+        PRODUCT_NAME: StryvBlockd
+        PRODUCT_BUNDLE_IDENTIFIER: com.stryv.blockd
+        OTHER_CODE_SIGN_FLAGS: "--identifier com.stryv.blockd"
+        SKIP_INSTALL: YES
+
+  Stryv:
+    type: application
+    platform: macOS
+    sources:
+      - path: Stryv
+        excludes: ["Resources/*.sh"]
+      - path: Stryv/Resources/install-daemon.sh
+        buildPhase: resources
+    dependencies:
+      - target: StryvCore
+      - target: StryvBlockd
+        embed: true
+        codeSign: false
+        copy:
+          destination: executables
+    info:
+      path: Stryv/Info.plist
+      properties:
+        CFBundleDisplayName: Stryv
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        LSUIElement: true
+        LSApplicationCategoryType: public.app-category.productivity
+        NSHumanReadableCopyright: ""
+    settings:
+      base:
+        PRODUCT_NAME: Stryv
+        PRODUCT_BUNDLE_IDENTIFIER: com.stryv.mac
+        ENABLE_HARDENED_RUNTIME: YES
+        COMBINE_HIDPI_IMAGES: YES
+
+  StryvCoreTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [StryvCoreTests]
+    dependencies:
+      - target: StryvCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.stryv.core-tests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  Stryv:
+    build:
+      targets:
+        Stryv: all
+        StryvCoreTests: [test]
+    test:
+      targets: [StryvCoreTests]
